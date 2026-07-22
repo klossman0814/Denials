@@ -1,0 +1,29 @@
+import React from 'react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+
+const formatCurrency = (v) => `$${v.toLocaleString()}`;
+
+export default function FinancialImpact({ summary }) {
+  if (!summary) return <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>No financial data yet</div>;
+  const data = [
+    { metric: 'Charges', Amount: summary.totalCharges, fill: 'var(--color-primary)' },
+    { metric: 'Payments', Amount: summary.totalPayments, fill: 'var(--color-success)' },
+    { metric: 'Adjustments', Amount: summary.totalAdjustments, fill: 'var(--color-warning)' },
+  ];
+  return (
+    <div className="card">
+      <div className="card-header">Financial Impact</div>
+      <ResponsiveContainer width="100%" height={250}>
+        <BarChart data={data}>
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
+          <XAxis dataKey="metric" tick={{ fontSize: 11, fill: 'var(--text-secondary)' }} />
+          <YAxis tick={{ fontSize: 11, fill: 'var(--text-secondary)' }} tickFormatter={formatCurrency} />
+          <Tooltip formatter={(v) => formatCurrency(v)} />
+          <Bar dataKey="Amount" radius={[4, 4, 0, 0]}>
+            {data.map((e, i) => <rect key={i} fill={e.fill} />)}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}

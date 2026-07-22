@@ -1,0 +1,69 @@
+const { Op } = require('sequelize');
+const { Claim, ClaimLine, Remittance, RemittanceLine, RemittanceFile, DenialReason } = require('../models');
+
+exports.listClaims = async (req, res, next) => {
+  try {
+    const { page = 1, limit = 20, status, payer, search } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const where = {};
+    if (status) where.status = status;
+    if (payer) where.payer_name = { [Op.iLike]: `%${payer}%` };
+    if (search) {
+      where[Op.or] = [
+        { patient_first_name: { [Op.iLike]: `%${search}%` } },
+        { patient_last_name: { [Op.iLike]: `%${search}%` } },
+        { claim_id: { [Op.iLike]: `%${search}%` } },
+        { subscriber_id: { [Op.iLike]: `%${search}%` } },
+      ];
+    }
+    const { rows, count } = await Claim.findAndCountAll({
+      where, include: [
+        { model: ClaimLine, required: false },
+        { model: Remittance, required: false, attributes: ['total_paid'] },
+      ],
+      order: [['created_at', 'DESC']], limit: parseInt(limit), offset,
+    });
+
+    const claims = rows.map(c => {
+      const json = c.toJSON();
+      json.total_paid = (json.Remittances || [])
+        .reduce((sum, r) => sum + (parseFloat(r.total_paid) || 0), 0);
+      delete json.Remittances;
+      return json;
+    });
+
+    res.json({ claims, total: count, page: parseInt(page), totalPages: Math.ceil(count / parseInt(limit)) });
+  } catch (error) { next(error); }
+};
+
+exports.getClaim = async (req, res, next) => {
+  try {
+    const claim = await Claim.findByPk(req.params.id, {
+      include: [
+        { model: ClaimLine },
+        {
+          model: Remittance,
+          include: [
+            { model: DenialReason },
+            { model: RemittanceLine, include: [{ model: DenialReason }] },
+            { model: RemittanceFile, attributes: ['payer_name', 'payer_id_code', 'total_payment', 'payment_date', 'trace_number', 'payment_method'] },
+          ],
+        },
+        { model: DenialReason },
+      ],
+    });
+    if (!claim) return res.status(404).json({ error: 'Claim not found' });
+    res.json({ claim });
+  } catch (error) { next(error); }
+};
+
+exports.getClaimDenials = async (req, res, next) => {
+  try {
+    const denials = await DenialReason.findAll({
+      where: { claim_id: req.params.id },
+      include: [{ model: Remittance }],
+      order: [['created_at', 'DESC']],
+    });
+    res.json({ denials });
+  } catch (error) { next(error); }
+};

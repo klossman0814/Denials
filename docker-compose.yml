@@ -1,0 +1,67 @@
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: denials_user
+      POSTGRES_PASSWORD: denials_pass
+      POSTGRES_DB: denials_db
+    ports:
+      - "5441:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U denials_user -d denials_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      target: backend
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: denials_db
+      DB_USER: denials_user
+      DB_PASSWORD: denials_pass
+      JWT_SECRET: change-me-in-production
+      UPLOAD_DIR: /app/backend/uploads
+      UPLOAD_DIR_837: /incoming/837
+      UPLOAD_DIR_835: /incoming/835
+      PROCESSED_DIR_837: /incoming/837_processed
+      PROCESSED_DIR_835: /incoming/835_processed
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./backend/src:/app/backend/src
+      - uploads:/app/backend/uploads
+      - ./data:/app/backend/data
+      - C:\INCOMING_837:/incoming/837
+      - C:\INCOMING_837_PROCESSED:/incoming/837_processed
+      - C:\INCOMING_835:/incoming/835
+      - C:\INCOMING_835_PROCESSED:/incoming/835_processed
+
+  frontend:
+    build:
+      context: .
+      target: frontend-dev
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_URL: http://localhost:3000/api
+      VITE_PROXY_TARGET: http://backend:3000
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend/src:/app/frontend/src
+      - ./frontend/index.html:/app/frontend/index.html
+
+volumes:
+  pgdata:
+  uploads:
