@@ -8,13 +8,16 @@ export default function Upload() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(null);
   const [uploadResult, setUploadResult] = useState(null);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const limit = 25;
 
   const fetchFiles = useCallback(() => {
     setLoading(true);
-    uploadApi.listFiles().then(res => setFiles(res.data.files || [])).catch(() => {}).finally(() => setLoading(false));
-  }, []);
+    uploadApi.listFiles({ page, limit }).then(res => { setFiles(res.data.files || []); setTotal(res.data.total); }).catch(() => {}).finally(() => setLoading(false));
+  }, [page]);
 
-  useEffect(() => { fetchFiles(); }, [fetchFiles]);
+  useEffect(() => { fetchFiles(); }, [fetchFiles, page]);
 
   const handleUpload = async (type, file) => {
     setUploading(file.name);
@@ -83,6 +86,19 @@ export default function Upload() {
               ))}
             </tbody>
           </table>
+          {total > limit && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem' }}>
+              <span style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
+                Showing {(page - 1) * limit + 1}–{Math.min(page * limit, total)} of {total}
+              </span>
+              <div style={{ display: 'flex', gap: '0.25rem' }}>
+                <button className="btn btn-secondary" disabled={page <= 1} onClick={() => setPage(p => p - 1)}
+                  style={{ fontSize: '0.75rem', padding: '0.25rem 0.75rem' }}>Prev</button>
+                <button className="btn btn-secondary" disabled={page * limit >= total} onClick={() => setPage(p => p + 1)}
+                  style={{ fontSize: '0.75rem', padding: '0.25rem 0.75rem' }}>Next</button>
+              </div>
+            </div>
+          )}
         )}
       </div>
     </div>

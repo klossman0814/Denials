@@ -5,5 +5,5 @@ export const uploadApi = {
     formData.append('file', file);
     return api.post(`/upload/${type}`, formData, { headers: { 'Content-Type': 'multipart/form-data' } });
   },
-  listFiles: () => api.get('/upload/files'),
+  listFiles: (params = {}) => api.get('/upload/files', { params }),
 };

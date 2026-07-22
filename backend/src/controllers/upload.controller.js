@@ -16,7 +16,18 @@ exports.uploadFile = async (req, res, next) => {
 
 exports.listFiles = async (req, res, next) => {
   try {
-    const files = await UploadedFile.findAll({ order: [['uploaded_at', 'DESC']], limit: 100 });
-    res.json({ files });
+    const { page = 1, limit = 25 } = req.query;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const { rows, count } = await UploadedFile.findAndCountAll({
+      order: [['uploaded_at', 'DESC']],
+      limit: parseInt(limit),
+      offset,
+    });
+    res.json({
+      files: rows,
+      total: count,
+      page: parseInt(page),
+      totalPages: Math.ceil(count / parseInt(limit)),
+    });
   } catch (error) { next(error); }
 };
