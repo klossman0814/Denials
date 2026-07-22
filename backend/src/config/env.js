@@ -25,7 +25,7 @@ module.exports = {
     maxFileSize: parseInt(process.env.MAX_FILE_SIZE, 10) || 10485760,
   },
   redis: {
-    url: process.env.REDIS_URL || 'redis://localhost:6379',
+    url: process.env.REDIS_URL || 'redis://localhost:6380',
   },
   corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:5173',
 };

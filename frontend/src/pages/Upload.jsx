@@ -73,6 +73,7 @@ export default function Upload() {
         ) : files.length === 0 ? (
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', textAlign: 'center', padding: '2rem' }}>No files uploaded yet.</p>
         ) : (
+          <>
           <table className="table">
             <thead><tr><th>Filename</th><th>Type</th><th>Status</th><th>Uploaded</th></tr></thead>
             <tbody>
@@ -99,6 +100,7 @@ export default function Upload() {
               </div>
             </div>
           )}
+          </>
         )}
       </div>
     </div>
