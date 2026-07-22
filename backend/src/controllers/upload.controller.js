@@ -38,17 +38,29 @@ exports.uploadFile = async (req, res, next) => {
       uploaded_by: req.user?.id || null,
     });
 
-    // Enqueue processing job
-    await ediQueue.add({
-      filePath: req.file.path,
-      fileType,
-      uploadedBy: req.user?.id || null,
-    });
+    // Enqueue processing job (or fall back to synchronous processing)
+    if (ediQueue) {
+      await ediQueue.add({
+        filePath: req.file.path,
+        fileType,
+        uploadedBy: req.user?.id || null,
+      });
 
-    res.status(202).json({
-      message: 'File queued for processing',
-      file: fileRecord,
-    });
+      res.status(202).json({
+        message: 'File queued for processing',
+        file: fileRecord,
+      });
+    } else {
+      // No queue available — process synchronously
+      fileRecord.status = 'parsing';
+      await fileRecord.save();
+
+      const result = await uploadService.processFile(req.file.path, fileType, req.user?.id || null);
+      if (result.duplicate) {
+        return res.status(200).json({ message: result.message, file: result.file, recordsCreated: 0, duplicate: true });
+      }
+      res.status(201).json({ message: 'File processed successfully', file: result.file, recordsCreated: result.recordsCreated });
+    }
   } catch (error) { next(error); }
 };
 

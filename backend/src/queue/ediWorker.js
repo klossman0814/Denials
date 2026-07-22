@@ -9,6 +9,10 @@ function startWorker() {
   }
 
   const ediQueue = require('./ediQueue');
+  if (!ediQueue) {
+    logger.info('EDI worker: not started (Bull queue not available)');
+    return;
+  }
 
   ediQueue.process(async (job) => {
     const { filePath, fileType, uploadedBy } = job.data;
