@@ -14,7 +14,14 @@ const RemittanceFile = sequelize.define('RemittanceFile', {
   payee_name: { type: DataTypes.STRING(200) },
   payee_id_code: { type: DataTypes.STRING(50) },
   payee_tax_id: { type: DataTypes.STRING(20) },
-}, { tableName: 'remittance_files', timestamps: true, underscored: true });
+}, {
+  tableName: 'remittance_files',
+  timestamps: true,
+  underscored: true,
+  indexes: [
+    { fields: ['payer_name'] },
+  ],
+});
 
 RemittanceFile.associate = (models) => {
   RemittanceFile.belongsTo(models.UploadedFile, { foreignKey: 'file_id' });

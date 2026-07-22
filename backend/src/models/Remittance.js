@@ -22,7 +22,15 @@ const Remittance = sequelize.define('Remittance', {
   service_date_to: { type: DataTypes.DATEONLY },
   claim_status_code: { type: DataTypes.STRING(5) },
   remittance_file_id: { type: DataTypes.UUID },
-}, { tableName: 'remittances', timestamps: true, underscored: true });
+}, {
+  tableName: 'remittances',
+  timestamps: true,
+  underscored: true,
+  indexes: [
+    { fields: ['claim_id'] },
+    { fields: ['remittance_file_id'] },
+  ],
+});
 
 Remittance.associate = (models) => {
   Remittance.belongsTo(models.UploadedFile, { foreignKey: 'file_id' });

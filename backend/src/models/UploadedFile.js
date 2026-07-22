@@ -13,7 +13,15 @@ const UploadedFile = sequelize.define('UploadedFile', {
   error_message: { type: DataTypes.TEXT },
   uploaded_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
   parsed_at: { type: DataTypes.DATE },
-}, { tableName: 'uploaded_files', timestamps: false, underscored: true });
+}, {
+  tableName: 'uploaded_files',
+  timestamps: false,
+  underscored: true,
+  indexes: [
+    { fields: ['content_hash'] },
+    { fields: ['file_type', 'status'] },
+  ],
+});
 
 UploadedFile.associate = (models) => {
   UploadedFile.belongsTo(models.User, { foreignKey: 'uploaded_by' });

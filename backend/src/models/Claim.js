@@ -16,7 +16,20 @@ const Claim = sequelize.define('Claim', {
   service_date_start: { type: DataTypes.DATEONLY },
   service_date_end: { type: DataTypes.DATEONLY },
   status: { type: DataTypes.STRING(20), defaultValue: 'submitted', validate: { isIn: [['submitted', 'paid', 'denied', 'partial']] } },
-}, { tableName: 'claims', timestamps: true, underscored: true });
+}, {
+  tableName: 'claims',
+  timestamps: true,
+  underscored: true,
+  indexes: [
+    { fields: ['claim_id'] },
+    { fields: ['payer_name'] },
+    { fields: ['status'] },
+    { fields: ['created_at'] },
+    { fields: ['status', 'created_at'] },
+    { fields: ['patient_last_name'] },
+    { fields: ['patient_first_name'] },
+  ],
+});
 
 Claim.associate = (models) => {
   Claim.belongsTo(models.UploadedFile, { foreignKey: 'file_id' });

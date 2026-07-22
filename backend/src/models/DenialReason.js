@@ -7,7 +7,16 @@ const DenialReason = sequelize.define('DenialReason', {
   group_code: { type: DataTypes.STRING(5) },
   amount: { type: DataTypes.DECIMAL(10, 2) },
   reason_description: { type: DataTypes.TEXT },
-}, { tableName: 'denial_reasons', timestamps: true, underscored: true });
+}, {
+  tableName: 'denial_reasons',
+  timestamps: true,
+  underscored: true,
+  indexes: [
+    { fields: ['denial_code'] },
+    { fields: ['claim_id'] },
+    { fields: ['remittance_id'] },
+  ],
+});
 
 DenialReason.associate = (models) => {
   DenialReason.belongsTo(models.Remittance, { foreignKey: 'remittance_id' });
