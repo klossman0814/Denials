@@ -33,6 +33,10 @@ const start = async () => {
 
       const { startWatcher } = require('./watcher/fileWatcher');
       startWatcher(dir837, dir835);
+
+      // Start EDI queue worker
+      const { startWorker } = require('./queue/ediWorker');
+      startWorker();
     }
 
     const server = app.listen(config.port, () => {
