@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { claimsApi } from '../services/claims.api';
 import StatusBadge from '../components/StatusBadge';
+import { useDebounce } from '../hooks/useDebounce';
 
 const currency = (v) => v != null ? `$${v.toLocaleString()}` : '—';
 
@@ -12,11 +13,12 @@ export default function Claims() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(true);
+  const debouncedSearch = useDebounce(search, 300);
   const limit = 20;
 
   useEffect(() => {
     setLoading(true);
-    claimsApi.list({ page, limit, search, status }).then(res => {
+    claimsApi.list({ page, limit, search: debouncedSearch, status }).then(res => {
       setClaims(res.data.claims);
       setTotal(res.data.total);
     }).catch(() => {}).finally(() => setLoading(false));

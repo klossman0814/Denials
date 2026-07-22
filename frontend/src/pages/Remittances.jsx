@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { remittancesApi } from '../services/remittances.api';
+import { useDebounce } from '../hooks/useDebounce';
 
 const currency = (v) => v != null ? `$${Number(v).toLocaleString()}` : '—';
 const dateFmt = (d) => d ? new Date(d).toLocaleDateString() : '—';
@@ -20,11 +21,12 @@ export default function Remittances() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const debouncedSearch = useDebounce(search, 300);
   const limit = 25;
 
   useEffect(() => {
     setLoading(true);
-    remittancesApi.list({ page, limit, search: search || undefined })
+    remittancesApi.list({ page, limit, search: debouncedSearch || undefined })
       .then(res => { setFiles(res.data.files); setTotal(res.data.total); })
       .catch(() => {})
       .finally(() => setLoading(false));

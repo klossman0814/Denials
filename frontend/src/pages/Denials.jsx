@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { denialsApi } from '../services/denials.api';
 import StatusBadge from '../components/StatusBadge';
+import { useDebounce } from '../hooks/useDebounce';
 
 const currency = (v) => v != null ? `$${Number(v).toLocaleString()}` : '—';
 
@@ -26,11 +27,14 @@ export default function Denials() {
   const [payer, setPayer] = useState('');
   const [status, setStatus] = useState('');
   const [loading, setLoading] = useState(true);
+  const debouncedSearch = useDebounce(search, 300);
+  const debouncedDenialCode = useDebounce(denialCode, 300);
+  const debouncedPayer = useDebounce(payer, 300);
   const limit = 25;
 
   useEffect(() => {
     setLoading(true);
-    denialsApi.list({ page, limit, search: search || undefined, denial_code: denialCode || undefined, payer: payer || undefined, status: status || undefined })
+    denialsApi.list({ page, limit, search: debouncedSearch || undefined, denial_code: debouncedDenialCode || undefined, payer: debouncedPayer || undefined, status: status || undefined })
       .then(res => {
         setDenials(res.data.denials);
         setSummary(res.data.summary);
