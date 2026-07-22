@@ -43,6 +43,18 @@ exports.listClaims = async (req, res, next) => {
 exports.getClaim = async (req, res, next) => {
   try {
     const claim = await Claim.findByPk(req.params.id, {
+      attributes: {
+        include: [
+          [
+            sequelize.literal(`(
+              SELECT COALESCE(SUM("total_paid"), 0)
+              FROM "remittances"
+              WHERE "remittances"."claim_id" = "Claim"."id"
+            )`),
+            'total_paid',
+          ],
+        ],
+      },
       include: [
         { model: ClaimLine },
         {

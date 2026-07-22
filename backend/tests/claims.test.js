@@ -1,4 +1,3 @@
-const { expect } = require('chai');
 const request = require('supertest');
 const app = require('../src/app');
 const { User, Claim, ClaimLine } = require('../src/models');
@@ -13,12 +12,12 @@ describe('Claims API', () => {
 
   it('should list claims (empty)', async () => {
     const res = await request(app).get('/api/claims').set('Authorization', `Bearer ${token}`);
-    expect(res.status).to.equal(200);
-    expect(res.body.claims).to.deep.equal([]);
+    expect(res.status).toBe(200);
+    expect(res.body.claims).toEqual([]);
   });
 
   it('should return 401 without auth', async () => {
     const res = await request(app).get('/api/claims');
-    expect(res.status).to.equal(401);
+    expect(res.status).toBe(401);
   });
 });

@@ -1,4 +1,3 @@
-const { expect } = require('chai');
 const request = require('supertest');
 const path = require('path');
 const fs = require('fs');
@@ -23,23 +22,23 @@ describe('Upload API', () => {
     const res = await request(app)
       .post('/api/upload/837').set('Authorization', `Bearer ${token}`)
       .attach('file', tmpFile);
-    expect(res.status).to.equal(201);
-    expect(res.body.recordsCreated).to.be.greaterThan(0);
-    expect(res.body.file.status).to.equal('parsed');
+    expect(res.status).toBe(201);
+    expect(res.body.recordsCreated).toBeGreaterThan(0);
+    expect(res.body.file.status).toBe('parsed');
 
     const claims = await Claim.findAll();
-    expect(claims.length).to.be.greaterThan(0);
+    expect(claims.length).toBeGreaterThan(0);
     if (fs.existsSync(tmpFile)) fs.unlinkSync(tmpFile);
   });
 
   it('should return 401 without token', async () => {
     const res = await request(app).post('/api/upload/837');
-    expect(res.status).to.equal(401);
+    expect(res.status).toBe(401);
   });
 
   it('should list uploaded files', async () => {
     const res = await request(app).get('/api/upload/files').set('Authorization', `Bearer ${token}`);
-    expect(res.status).to.equal(200);
-    expect(res.body.files).to.not.be.undefined;
+    expect(res.status).toBe(200);
+    expect(res.body.files).toBeDefined();
   });
 });

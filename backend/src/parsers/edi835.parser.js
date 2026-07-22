@@ -1,27 +1,48 @@
-const { splitSegments, parseSegment, getSubElements, parseEDIDate, parseEDIAmount } = require('./edi.utils');
+const {
+  splitSegments,
+  parseSegment,
+  getSubElements,
+  parseEDIDate,
+  parseEDIAmount,
+  REF_QUALIFIER_DESCRIPTIONS,
+  AMT_QUALIFIER_DESCRIPTIONS,
+  getDescription,
+} = require('./edi.utils');
 
+/**
+ * Parse EDI 835 Health Care Claim Payment/Advice
+ *
+ * Loop-based single-pass state machine:
+ *   Phase 0: Envelope (ISA -> GS -> ST)
+ *   Phase 1: Header   (BPR -> TRN -> DTM 405)
+ *   Phase 2: Payer    (N1*PR -> N3 -> N4 -> REF -> PER)
+ *   Phase 3: Payee    (N1*PE -> N3 -> N4 -> REF -> PER)
+ *   Phase 4: Claims   (CLP -> NM1 -> CAS -> DTM -> REF -> AMT -> DMG -> MIA -> MOA)
+ *     Phase 4a: SVC   (SVC -> CAS -> DTM -> REF -> AMT -> QTY)
+ *   Phase 5: Summary  (PLB)
+ *   Phase 6: Trailers (SE -> GE -> IEA)
+ */
 function parse835(content) {
   const segments = splitSegments(content);
+  if (segments.length === 0) {
+    return { metadata: {}, file: createFile(), remittances: [], provider_adjustments: [] };
+  }
 
-  const file = {
-    total_payment: 0,
-    payment_method: '',
-    payment_date: null,
-    trace_number: '',
-    sender_bank_id: '',
-    sender_account: '',
-    payer_name: '',
-    payer_id_code: '',
-    payee_name: '',
-    payee_id_code: '',
-    payee_tax_id: '',
-  };
-
+  // --- Result containers ---
+  const metadata = {};
+  const file = createFile();
   const remittances = [];
+  const provider_adjustments = [];
+  let phase = 0; // 0=envelope, 1=header, 2=payer, 3=payee, 4=claim, 5=summary, 6=trailer
+  let loopContext = null; // { type: 'PR'|'PE' }
+
+  // --- Current claim/line being built ---
   let currentRemittance = null;
   let currentLine = null;
   let lineCounter = 0;
-  let afterN1 = null;
+
+  // --- Helpers ---
+  function resetFileContext() { loopContext = null; }
 
   function finalizeLine() {
     if (currentRemittance && currentLine) {
@@ -33,169 +54,471 @@ function parse835(content) {
   function finalizeClaim() {
     finalizeLine();
     if (currentRemittance) {
+      // Compute patient_name for backward compat
+      currentRemittance.patient_name = `${currentRemittance.patient_first_name || ''} ${currentRemittance.patient_last_name || ''}`.trim();
       remittances.push(currentRemittance);
       currentRemittance = null;
     }
   }
 
+  function createFile() {
+    return {
+      total_payment: 0,
+      payment_method: '',
+      payment_date: null,
+      trace_number: '',
+      sender_bank_id: '',
+      sender_account: '',
+      credit_debit_flag: '',
+      payer_name: '',
+      payer_id_code: '',
+      payee_name: '',
+      payee_id_code: '',
+      payee_tax_id: '',
+      payer: { name: '', id_code: '', id_qualifier: '', address: { address1: '', address2: '', city: '', state: '', zip: '' }, contact: { name: '', phone: '', email: '' } },
+      payee: { name: '', id_code: '', id_qualifier: '', address: { address1: '', address2: '', city: '', state: '', zip: '' }, contact: { name: '', phone: '', email: '' }, additional_ids: [] },
+    };
+  }
+
+  function createRemittance() {
+    return {
+      payer_claim_id: '',
+      total_charge: 0,
+      total_paid: 0,
+      adjustment_amount: 0,
+      status: '',
+      claim_status_code: '',
+      claim_filing_type: '',
+      remittance_date: null,
+      patient_name: '',
+      patient_first_name: '',
+      patient_last_name: '',
+      patient_member_id: '',
+      subscriber_id: '',
+      subscriber_first_name: '',
+      subscriber_last_name: '',
+      rendering_provider_name: '',
+      rendering_provider_npi: '',
+      billing_provider_name: '',
+      billing_provider_npi: '',
+      service_date_from: null,
+      service_date_to: null,
+      claim_statement_from: null,
+      claim_statement_to: null,
+      patient_dob: null,
+      patient_gender: '',
+      refs: [],
+      amts: [],
+      denial_reasons: [],
+      service_lines: [],
+      patient: { first_name: '', last_name: '', member_id: '' },
+      subscriber: { first_name: '', last_name: '', subscriber_id: '' },
+      rendering_provider: { name: '', npi: '' },
+      billing_provider: { name: '', npi: '' },
+      service_dates: { from: null, to: null },
+      inpatient_info: null,
+      outpatient_info: null,
+    };
+  }
+
+  function createLine() {
+    lineCounter++;
+    return {
+      line_number: lineCounter,
+      procedure_code: '',
+      modifier: '',
+      charge_amount: 0,
+      paid_amount: 0,
+      unit_count: 0,
+      service_date: null,
+      line_control_number: '',
+      patient_liability: 0,
+      quantity_adjustments: [],
+      denial_reasons: [],
+    };
+  }
+
+  // --- Main parsing loop ---
   for (let i = 0; i < segments.length; i++) {
-    const elements = parseSegment(segments[i]);
+    const segment = segments[i];
+    if (!segment) continue;
+
+    const elements = parseSegment(segment);
     const segId = elements[0];
 
     switch (segId) {
-      case 'BPR':
+      // -- Phase 0: Envelope --
+      case 'ISA': {
+        metadata.sender_id = (elements[6] || '').trim();
+        metadata.receiver_id = (elements[8] || '').trim();
+        metadata.date = (elements[9] || '').trim();
+        metadata.time = (elements[10] || '').trim();
+        metadata.control_number = (elements[13] || '').trim();
+        metadata.standards_id = (elements[12] || '').trim();
+        phase = 0;
+        break;
+      }
+      case 'GS': {
+        metadata.gs_sender = (elements[2] || '').trim();
+        metadata.gs_receiver = (elements[3] || '').trim();
+        metadata.gs_date = (elements[4] || '').trim();
+        metadata.gs_time = (elements[5] || '').trim();
+        metadata.gs_control_number = (elements[6] || '').trim();
+        metadata.gs_version = (elements[8] || '').trim();
+        break;
+      }
+      case 'ST': {
+        metadata.st_transaction_id = (elements[1] || '').trim();
+        metadata.st_control_number = (elements[2] || '').trim();
+        break;
+      }
+
+      // -- Phase 1: Header --
+      case 'BPR': {
         file.total_payment = parseEDIAmount(elements[2]);
+        file.credit_debit_flag = elements[3] || '';
         file.payment_method = elements[4] || '';
-        file.payment_date = parseEDIDate(elements[16]) || parseEDIDate(elements[14]);
         file.sender_bank_id = elements[7] || '';
         file.sender_account = elements[9] || '';
-        afterN1 = null;
+        file.payment_date = parseEDIDate(elements[16]) || parseEDIDate(elements[14]) || null;
+        phase = 1;
+        resetFileContext();
         break;
-
-      case 'TRN':
+      }
+      case 'TRN': {
         file.trace_number = elements[2] || '';
         break;
+      }
 
-      case 'N1':
-        if (elements[1] === 'PR') {
-          file.payer_name = elements[2] || '';
-          file.payer_id_code = `${elements[3] || ''}:${elements[4] || ''}`;
-          afterN1 = 'PR';
-        } else if (elements[1] === 'PE') {
-          file.payee_name = elements[2] || '';
-          file.payee_id_code = `${elements[3] || ''}:${elements[4] || ''}`;
-          afterN1 = 'PE';
+      // -- Phase 2: Payer Loop (N1*PR) --
+      // -- Phase 3: Payee Loop (N1*PE) --
+      case 'N1': {
+        const n1Entity = elements[1] || '';
+        const n1Name = elements[2] || '';
+        const n1IdQual = (elements[3] || '').trim();
+        const n1Id = (elements[4] || '').trim();
+        const idCode = n1IdQual ? `${n1IdQual}:${n1Id}` : '';
+
+        if (n1Entity === 'PR') {
+          file.payer_name = n1Name;
+          file.payer_id_code = idCode;
+          file.payer.name = n1Name;
+          file.payer.id_code = n1Id;
+          file.payer.id_qualifier = n1IdQual;
+          loopContext = { type: 'PR' };
+          phase = 2;
+        } else if (n1Entity === 'PE') {
+          file.payee_name = n1Name;
+          file.payee_id_code = idCode;
+          file.payee.name = n1Name;
+          file.payee.id_code = n1Id;
+          file.payee.id_qualifier = n1IdQual;
+          loopContext = { type: 'PE' };
+          phase = 3;
         } else {
-          afterN1 = null;
+          loopContext = null;
         }
         break;
-
-      case 'REF':
-        if (afterN1 === 'PE' && elements[1] === 'TJ') {
-          file.payee_tax_id = elements[2] || '';
-        }
-        afterN1 = null;
+      }
+      case 'N3': {
+        if (!loopContext) break;
+        const target = loopContext.type === 'PR' ? file.payer : file.payee;
+        target.address.address1 = elements[1] || '';
+        target.address.address2 = elements[2] || '';
         break;
-
-      case 'DTM':
-        if (elements[1] === '405' && !currentRemittance) {
-          if (!file.payment_date) file.payment_date = parseEDIDate(elements[2]);
-        }
-        if (currentRemittance) {
-          if (elements[1] === '232') currentRemittance.service_date_from = parseEDIDate(elements[2]);
-          if (elements[1] === '233') currentRemittance.service_date_to = parseEDIDate(elements[2]);
-          if (elements[1] === '050') currentRemittance.remittance_date = parseEDIDate(elements[2]);
-        }
-        if (currentLine && elements[1] === '472') {
-          currentLine.service_date = parseEDIDate(elements[2]);
-        }
+      }
+      case 'N4': {
+        if (!loopContext) break;
+        const target = loopContext.type === 'PR' ? file.payer : file.payee;
+        target.address.city = elements[1] || '';
+        target.address.state = elements[2] || '';
+        target.address.zip = elements[3] || '';
         break;
-
-      case 'CLP':
-        finalizeClaim();
-        lineCounter = 0;
-        currentRemittance = {
-          patient_name: '',
-          payer_claim_id: elements[7] || elements[1] || '',
-          total_charge: parseEDIAmount(elements[3]),
-          total_paid: parseEDIAmount(elements[4]),
-          adjustment_amount: 0,
-          remittance_date: null,
-          status: parseFloat(elements[4]) >= parseFloat(elements[3]) ? 'paid' : (parseFloat(elements[4]) > 0 ? 'partial' : 'denied'),
-          claim_status_code: elements[2] || '',
-          patient_first_name: '',
-          patient_last_name: '',
-          patient_member_id: '',
-          subscriber_id: '',
-          rendering_provider_name: '',
-          rendering_provider_npi: '',
-          billing_provider_name: '',
-          billing_provider_npi: '',
-          service_date_from: null,
-          service_date_to: null,
-          denial_reasons: [],
-          service_lines: [],
-        };
-        break;
-
-      case 'NM1':
-        if (!currentRemittance) break;
-        if (elements[1] === 'QC') {
-          currentRemittance.patient_last_name = elements[3] || '';
-          currentRemittance.patient_first_name = elements[4] || '';
-          currentRemittance.patient_name = `${elements[4] || ''} ${elements[3] || ''}`.trim();
-          currentRemittance.patient_member_id = elements[9] || '';
-        } else if (elements[1] === '82') {
-          currentRemittance.rendering_provider_name = `${elements[4] || ''} ${elements[3] || ''}`.trim();
-        } else if (elements[1] === '85') {
-          currentRemittance.billing_provider_name = `${elements[4] || ''} ${elements[3] || ''}`.trim();
-        } else if (elements[1] === 'IL') {
-          currentRemittance.subscriber_id = elements[9] || '';
+      }
+      case 'PER': {
+        if (!loopContext) break;
+        const target = loopContext.type === 'PR' ? file.payer : file.payee;
+        target.contact.name = elements[2] || '';
+        // PER can have multiple communication numbers at varying positions
+        for (let j = 3; j + 1 < elements.length; j += 2) {
+          const qual = (elements[j] || '').trim();
+          const value = elements[j + 1] || '';
+          if (qual === 'TE') target.contact.phone = value;
+          else if (qual === 'EM') target.contact.email = value;
+          // FX (fax) not currently stored
         }
         break;
+      }
+      case 'REF': {
+        const refQual = (elements[1] || '').trim();
+        const refValue = elements[2] || '';
+        const refDesc = getDescription(REF_QUALIFIER_DESCRIPTIONS, refQual);
 
-      case 'SVC':
-        if (!currentRemittance) break;
-        finalizeLine();
-        lineCounter++;
-        const svcElements = getSubElements(elements[1] || '');
-        const procCode = svcElements.length >= 3 ? svcElements[2] : (svcElements.length >= 2 ? svcElements[1] : '');
-        currentLine = {
-          line_number: lineCounter,
-          procedure_code: procCode || '',
-          modifier: svcElements.length >= 4 ? svcElements.slice(3).filter(Boolean).join(':') : '',
-          charge_amount: parseEDIAmount(elements[2]),
-          paid_amount: parseEDIAmount(elements[3]),
-          unit_count: parseEDIAmount(elements[5]),
-          service_date: null,
-          line_control_number: '',
-          patient_liability: 0,
-          denial_reasons: [],
-        };
-        break;
-
-      case 'CAS':
-        if (currentLine) {
-          const lineGroupCode = elements[1] || '';
-          for (let j = 2; j + 2 < elements.length; j += 3) {
-            const code = elements[j];
-            const amount = parseEDIAmount(elements[j + 1]);
-            const denial = { denial_code: `${lineGroupCode}-${code}`, group_code: lineGroupCode, amount, reason_description: '' };
-            currentLine.denial_reasons.push(denial);
+        if (loopContext && loopContext.type === 'PE') {
+          // Payee-level REFs
+          if (refQual === 'TJ') {
+            file.payee_tax_id = refValue;
+          }
+          file.payee.additional_ids.push({ qualifier: refQual, value: refValue, description: refDesc });
+        } else if (currentLine) {
+          // Line-level REF — check before claim-level since line is inside a claim
+          if (refQual === '6R') {
+            currentLine.line_control_number = refValue;
           }
         } else if (currentRemittance) {
-          const claimGroupCode = elements[1] || '';
-          for (let j = 2; j + 2 < elements.length; j += 3) {
-            const code = elements[j];
-            const amount = parseEDIAmount(elements[j + 1]);
-            const denial = { denial_code: `${claimGroupCode}-${code}`, group_code: claimGroupCode, amount, reason_description: '' };
-            currentRemittance.denial_reasons.push(denial);
-            currentRemittance.adjustment_amount += amount;
+          // Claim-level REFs
+          if (refQual === '1C' && !currentRemittance.rendering_provider_npi) {
+            currentRemittance.rendering_provider_npi = refValue;
+            currentRemittance.rendering_provider.npi = refValue;
+          }
+          currentRemittance.refs.push({ qualifier: refQual, value: refValue, description: refDesc });
+        }
+        break;
+      }
+
+      // -- DTM (can appear in header, claim, and line contexts) --
+      case 'DTM': {
+        const dtmQual = (elements[1] || '').trim();
+        const dtmDate = parseEDIDate(elements[2]);
+
+        if (dtmQual === '405' && !file.payment_date) {
+          file.payment_date = dtmDate;
+        }
+        if (currentRemittance) {
+          if (dtmQual === '232') { currentRemittance.service_date_from = dtmDate; currentRemittance.service_dates.from = dtmDate; }
+          else if (dtmQual === '233') { currentRemittance.service_date_to = dtmDate; currentRemittance.service_dates.to = dtmDate; }
+          else if (dtmQual === '050') { currentRemittance.remittance_date = dtmDate; }
+          else if (dtmQual === '652') { currentRemittance.claim_statement_from = dtmDate; }
+          else if (dtmQual === '653') { currentRemittance.claim_statement_to = dtmDate; }
+        }
+        if (currentLine && dtmQual === '472') {
+          currentLine.service_date = dtmDate;
+        }
+        break;
+      }
+
+      // -- Phase 4: Claims --
+      case 'CLP': {
+        finalizeClaim();
+        lineCounter = 0;
+        phase = 4;
+        loopContext = null; // Clear payer/payee context when entering claims
+
+        const clpClaimId = elements[1] || '';
+        const clpStatusCode = elements[2] || '';
+        const clpCharge = parseEDIAmount(elements[3]);
+        const clpPaid = parseEDIAmount(elements[4]);
+        const clpPayerClaimId = elements[7] || clpClaimId;
+        const clpFilingType = elements.length > 8 ? (elements[8] || '').trim() : '';
+
+        let status = 'pending';
+        if (clpPaid >= clpCharge && clpCharge > 0) status = 'paid';
+        else if (clpPaid > 0) status = 'partial';
+        else status = 'denied';
+
+        currentRemittance = createRemittance();
+        currentRemittance.payer_claim_id = clpPayerClaimId;
+        currentRemittance.total_charge = clpCharge;
+        currentRemittance.total_paid = clpPaid;
+        currentRemittance.adjustment_amount = parseEDIAmount(elements[5]) || 0;
+        currentRemittance.status = status;
+        currentRemittance.claim_status_code = clpStatusCode;
+        currentRemittance.claim_filing_type = clpFilingType;
+        break;
+      }
+
+      // -- NM1 (patient, subscriber, providers) --
+      case 'NM1': {
+        if (!currentRemittance) break;
+        const nm1Qual = elements[1] || '';
+        const nm1Last = elements[3] || '';
+        const nm1First = elements[4] || '';
+        const nm1Id = elements[9] || '';
+        const nm1IdQual = (elements[8] || '').trim();
+
+        if (nm1Qual === 'QC') {
+          currentRemittance.patient_last_name = nm1Last;
+          currentRemittance.patient_first_name = nm1First;
+          currentRemittance.patient_member_id = nm1Id;
+          currentRemittance.patient.last_name = nm1Last;
+          currentRemittance.patient.first_name = nm1First;
+          currentRemittance.patient.member_id = nm1Id;
+        } else if (nm1Qual === 'IL') {
+          currentRemittance.subscriber_id = nm1Id;
+          currentRemittance.subscriber.subscriber_id = nm1Id;
+          currentRemittance.subscriber.last_name = nm1Last;
+          currentRemittance.subscriber.first_name = nm1First;
+        } else if (nm1Qual === '82') {
+          currentRemittance.rendering_provider_name = `${nm1First} ${nm1Last}`.trim();
+          currentRemittance.rendering_provider.name = `${nm1First} ${nm1Last}`.trim();
+          if (nm1IdQual === 'XX') {
+            currentRemittance.rendering_provider_npi = nm1Id;
+            currentRemittance.rendering_provider.npi = nm1Id;
+          }
+        } else if (nm1Qual === '85') {
+          currentRemittance.billing_provider_name = `${nm1First} ${nm1Last}`.trim();
+          currentRemittance.billing_provider.name = `${nm1First} ${nm1Last}`.trim();
+          if (nm1IdQual === 'XX') {
+            currentRemittance.billing_provider_npi = nm1Id;
+            currentRemittance.billing_provider.npi = nm1Id;
           }
         }
         break;
+      }
 
-      case 'AMT':
-        if (currentLine && elements[1] === 'B6') {
-          currentLine.patient_liability = parseEDIAmount(elements[2]);
+      // -- DMG (Patient Demographics) --
+      case 'DMG': {
+        if (!currentRemittance) break;
+        currentRemittance.patient_dob = parseEDIDate(elements[2]);
+        currentRemittance.patient_gender = elements[3] || '';
+        break;
+      }
+
+      // -- AMT (can appear at claim or line level) --
+      case 'AMT': {
+        const amtQual = (elements[1] || '').trim();
+        const amtValue = parseEDIAmount(elements[2]);
+
+        if (currentLine && amtQual === 'B6') {
+          currentLine.patient_liability = amtValue;
+        }
+        if (currentRemittance) {
+          currentRemittance.amts.push({
+            qualifier: amtQual,
+            value: amtValue,
+            description: getDescription(AMT_QUALIFIER_DESCRIPTIONS, amtQual),
+          });
         }
         break;
+      }
 
-      case 'REF':
-        if (currentLine && elements[1] === '6R') {
-          currentLine.line_control_number = elements[2] || '';
+      // -- CAS (Adjustments at claim or line level) --
+      case 'CAS': {
+        const casGroupCode = elements[1] || '';
+
+        if (currentLine) {
+          for (let j = 2; j + 2 < elements.length; j += 3) {
+            const code = elements[j];
+            const amount = parseEDIAmount(elements[j + 1]);
+            currentLine.denial_reasons.push({
+              denial_code: `${casGroupCode}-${code}`,
+              group_code: casGroupCode,
+              amount,
+              reason_description: '',
+            });
+          }
+        } else if (currentRemittance) {
+          for (let j = 2; j + 2 < elements.length; j += 3) {
+            const code = elements[j];
+            const amount = parseEDIAmount(elements[j + 1]);
+            currentRemittance.denial_reasons.push({
+              denial_code: `${casGroupCode}-${code}`,
+              group_code: casGroupCode,
+              amount,
+              reason_description: '',
+            });
+          }
         }
         break;
+      }
 
-      case 'SE':
+      // -- SVC (Service Line) --
+      case 'SVC': {
+        if (!currentRemittance) break;
+        finalizeLine();
+
+        const svcElements = getSubElements(elements[1] || '');
+        // Composite: typically "HC:CPTCODE" or just "CPTCODE"
+        const procCode = svcElements.length >= 2 ? svcElements[1] : (svcElements[0] || '');
+        const modifier = svcElements.length >= 3 ? svcElements.slice(2).filter(Boolean).join(':') : '';
+
+        currentLine = createLine();
+        currentLine.procedure_code = procCode;
+        currentLine.modifier = modifier;
+        currentLine.charge_amount = parseEDIAmount(elements[2]);
+        currentLine.paid_amount = parseEDIAmount(elements[3]);
+        currentLine.unit_count = parseEDIAmount(elements[5]) || 1;
+        break;
+      }
+
+      // -- QTY (Quantity adjustments at line level) --
+      case 'QTY': {
+        if (!currentLine) break;
+        const qtyQual = (elements[1] || '').trim();
+        const qtyValue = parseEDIAmount(elements[2]);
+        currentLine.quantity_adjustments.push({ qualifier: qtyQual, value: qtyValue });
+        break;
+      }
+
+      // -- MIA (Inpatient Adjudication) --
+      case 'MIA': {
+        if (!currentRemittance) break;
+        currentRemittance.inpatient_info = {
+          covered_days: parseEDIAmount(elements[1]),
+          pps_code: elements[2] || '',
+          total_covered_days: parseEDIAmount(elements[3]),
+          drg: elements[9] || '',
+          discharge_status: elements[14] || '',
+          total_adjustment: parseEDIAmount(elements[5]),
+        };
+        break;
+      }
+
+      // -- MOA (Outpatient Adjudication) --
+      case 'MOA': {
+        if (!currentRemittance) break;
+        const remarkCodes = [];
+        for (let j = 2; j <= 4; j++) {
+          if (elements[j]) remarkCodes.push(elements[j]);
+        }
+        currentRemittance.outpatient_info = {
+          reimbursement: parseEDIAmount(elements[1]),
+          remark_codes: remarkCodes,
+        };
+        break;
+      }
+
+      // -- Phase 5: Summary (PLB) --
+      case 'PLB': {
+        phase = 5;
+        // PLB*provider_id*date*reason_code1*amount1*reason_code2*amount2...
+        // Reason code is a composite: "FB:50" where FB=group, 50=specific code
+        for (let j = 3; j + 1 < elements.length; j += 2) {
+          const reasonSub = getSubElements(elements[j] || '');
+          provider_adjustments.push({
+            provider_identifier: elements[1] || '',
+            adjustment_date: parseEDIDate(elements[2]),
+            adjustment_reason_code: reasonSub[0] || '',
+            adjustment_reason_subcode: reasonSub[1] || '',
+            adjustment_amount: parseEDIAmount(elements[j + 1]),
+            reference_identification: '',
+          });
+        }
+        break;
+      }
+
+      // -- Phase 6: Trailers --
+      case 'SE': {
         finalizeClaim();
+        metadata.total_segments = parseInt(elements[1], 10) || 0;
+        phase = 6;
         break;
+      }
+      case 'GE': {
+        metadata.total_functional_groups = parseInt(elements[1], 10) || 0;
+        break;
+      }
+      case 'IEA': {
+        metadata.interchange_control_number = (elements[2] || '').trim();
+        break;
+      }
     }
   }
 
+  // Finalize any remaining claim
   finalizeClaim();
 
-  return { file, remittances };
+  return { metadata, file, remittances, provider_adjustments };
 }
 
 module.exports = { parse835 };
