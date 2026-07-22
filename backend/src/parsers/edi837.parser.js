@@ -165,6 +165,10 @@ function parse837(content) {
             patient.first_name = first;
             patient.last_name = last;
             patient.member_id = idCode || '';
+            // Always also store on subscriber context as fallback for when no HL*23 exists
+            subscriber.first_name = subscriber.first_name || first;
+            subscriber.last_name = subscriber.last_name || last;
+            subscriber.member_id = subscriber.member_id || idCode || '';
             if (currentClaim) {
               currentClaim.patient_first_name = currentClaim.patient_first_name || first;
               currentClaim.patient_last_name = currentClaim.patient_last_name || last;
@@ -296,13 +300,13 @@ function parse837(content) {
           claim_filing_type: subContext.claim_filing_type || '',
           pos_code: (elements[5] || '').trim(),
 
-          // Patient
-          patient_first_name: patContext.first_name || '',
-          patient_last_name: patContext.last_name || '',
-          patient_member_id: patContext.member_id || '',
-          patient_dob: patContext.dob || null,
-          patient_gender: patContext.gender || '',
-          patient_relationship_code: patContext.relationship_code || '',
+          // Patient (fall back to subscriber when no separate HL*23 patient level)
+          patient_first_name: patContext.first_name || subContext.first_name || '',
+          patient_last_name: patContext.last_name || subContext.last_name || '',
+          patient_member_id: patContext.member_id || subContext.member_id || '',
+          patient_dob: patContext.dob || subContext.dob || null,
+          patient_gender: patContext.gender || subContext.gender || '',
+          patient_relationship_code: patContext.relationship_code || subContext.relationship_code || '',
 
           // Subscriber
           subscriber_first_name: subContext.first_name || '',
@@ -423,21 +427,19 @@ function parse837(content) {
         const refQual = (elements[1] || '').trim();
         const refVal = (elements[2] || '').trim();
 
+        // Always set context-level values (even before CLM creates the claim)
+        if (refQual === 'EI') {
+          const bp = getContext('20');
+          bp.tax_id = refVal;
+          if (currentClaim) currentClaim.provider_tax_id = refVal;
+        } else if (refQual === '1L' || refQual === '34') {
+          const sub = getContext('22');
+          if (!sub.subscriber_id) sub.subscriber_id = refVal;
+          if (currentClaim) currentClaim.subscriber_id = currentClaim.subscriber_id || refVal;
+        }
+
         if (currentClaim) {
           currentClaim.refs.push({ qualifier: refQual, value: refVal, description: '' });
-
-          // Handle specific qualifiers
-          if (refQual === 'EI') {
-            const bp = getContext('20');
-            bp.tax_id = refVal;
-            currentClaim.provider_tax_id = refVal;
-          } else if (refQual === '1L' || refQual === '34') {
-            const sub = getContext('22');
-            if (!sub.subscriber_id) sub.subscriber_id = refVal;
-            currentClaim.subscriber_id = currentClaim.subscriber_id || refVal;
-          } else if (refQual === 'D9') {
-            // Claim reference number — stored in refs[]
-          }
         }
 
         if (currentLine) {
