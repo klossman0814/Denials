@@ -31,8 +31,15 @@ const start = async () => {
       const dir837 = settingsMap.upload_dir_837 || config.upload.dir837;
       const dir835 = settingsMap.upload_dir_835 || config.upload.dir835;
 
+      // Sanitize: Windows absolute paths (C:\...) get mangled inside Docker
+      // (path.resolve() treats them as relative on Linux, prepending cwd).
+      // If the DB stored a Windows path, ignore it and use the env default.
+      const isWindowsPath = (p) => p && /^[A-Za-z]:\\/.test(p);
+      const final837 = isWindowsPath(dir837) ? config.upload.dir837 : dir837;
+      const final835 = isWindowsPath(dir835) ? config.upload.dir835 : dir835;
+
       const { startWatcher } = require('./watcher/fileWatcher');
-      startWatcher(dir837, dir835);
+      startWatcher(final837, final835);
 
       // Start EDI queue worker
       const { startWorker } = require('./queue/ediWorker');

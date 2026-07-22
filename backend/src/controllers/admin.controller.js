@@ -201,6 +201,16 @@ exports.updateSettings = async (req, res, next) => {
     if (upload_dir_837) entries['upload_dir_837'] = upload_dir_837;
     if (upload_dir_835) entries['upload_dir_835'] = upload_dir_835;
 
+    // Reject Windows-style paths (C:\...) — they don't work inside Docker
+    const isWindowsPath = (p) => /^[A-Za-z]:\\/.test(p);
+    for (const [key, dirPath] of Object.entries(entries)) {
+      if (isWindowsPath(dirPath)) {
+        return res.status(400).json({
+          error: `Windows absolute paths (like "${dirPath}") are not supported. Use the Docker mount path instead (e.g., /incoming/837).`
+        });
+      }
+    }
+
     const warnings = [];
 
     for (const [key, dirPath] of Object.entries(entries)) {
