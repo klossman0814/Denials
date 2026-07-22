@@ -72,14 +72,32 @@ class UploadService {
   async _process837(content, fileId) {
     const { claims } = parse837(content);
     let count = 0;
+
+    // Batch: collect all claim records and their lines
+    const claimRecords = [];
+    const allLines = [];
     for (const { lines, ...claimFields } of claims) {
-      const claim = await Claim.create({ ...claimFields, file_id: fileId, status: 'submitted' });
-      count++;
-      for (const line of lines) {
-        await ClaimLine.create({ ...line, claim_id: claim.id });
-        count++;
+      claimRecords.push({ ...claimFields, file_id: fileId, status: 'submitted' });
+      allLines.push(lines || []);
+    }
+
+    if (claimRecords.length > 0) {
+      const createdClaims = await Claim.bulkCreate(claimRecords, { returning: true });
+      count += createdClaims.length;
+
+      // Create lines for each claim
+      const lineRecords = [];
+      for (let i = 0; i < createdClaims.length; i++) {
+        for (const line of allLines[i]) {
+          lineRecords.push({ ...line, claim_id: createdClaims[i].id });
+        }
+      }
+      if (lineRecords.length > 0) {
+        await ClaimLine.bulkCreate(lineRecords);
+        count += lineRecords.length;
       }
     }
+
     return { count };
   }
 
@@ -90,45 +108,84 @@ class UploadService {
     const remittanceFile = await RemittanceFile.create({ ...fileMeta, file_id: fileId });
     count++;
 
+    // Collect batch data
+    const remittanceRecords = [];
+    const claimLevelDenials = [];  // { dr, remitIdx, claimId }
+    const lineDenialBatches = [];  // { denials: [], remitIdx }
+
     for (const remittance of remittances) {
       const { denial_reasons, service_lines, ...remitFields } = remittance;
       const match = await this._matchClaim(remitFields.patient_name, remitFields.payer_claim_id);
 
-      const remitRecord = await Remittance.create({
+      const remitData = {
         ...remitFields,
         file_id: fileId,
         claim_id: match?.id || null,
         remittance_file_id: remittanceFile.id,
-      });
-      count++;
+      };
+      remittanceRecords.push(remitData);
+      const currentIdx = remittanceRecords.length - 1;
+
+      for (const dr of (denial_reasons || [])) {
+        claimLevelDenials.push({ dr, remitIdx: currentIdx, claimId: match?.id || null });
+      }
+
+      for (const line of (service_lines || [])) {
+        const { denial_reasons: lineDenials, ...lineFields } = line;
+        lineDenialBatches.push({
+          lineData: lineFields,
+          denials: lineDenials || [],
+          remitIdx: currentIdx,
+          claimId: match?.id || null,
+        });
+      }
 
       if (match) {
         const newStatus = remitFields.status === 'paid' ? 'paid' : remitFields.status === 'partial' ? 'partial' : 'denied';
         await match.update({ status: newStatus });
       }
+    }
 
-      for (const dr of denial_reasons) {
-        await DenialReason.create({ ...dr, remittance_id: remitRecord.id, claim_id: match?.id || null });
-        count++;
+    // Bulk insert all remittances
+    if (remittanceRecords.length > 0) {
+      const createdRemits = await Remittance.bulkCreate(remittanceRecords, { returning: true });
+      count += createdRemits.length;
+
+      // Bulk insert claim-level denial reasons
+      const drRecords = [];
+      for (const item of claimLevelDenials) {
+        drRecords.push({
+          ...item.dr,
+          remittance_id: createdRemits[item.remitIdx].id,
+          claim_id: item.claimId,
+        });
+      }
+      if (drRecords.length > 0) {
+        await DenialReason.bulkCreate(drRecords);
+        count += drRecords.length;
       }
 
-      for (const line of service_lines) {
-        const { denial_reasons: lineDenials, ...lineFields } = line;
+      // Service lines still use individual create (need returned ID for FK),
+      // but line-level denial reasons are batched
+      const lineDenialRecords = [];
+      for (const item of lineDenialBatches) {
         const lineRecord = await RemittanceLine.create({
-          ...lineFields,
-          remittance_id: remitRecord.id,
+          ...item.lineData,
+          remittance_id: createdRemits[item.remitIdx].id,
         });
         count++;
-
-        for (const dr of lineDenials) {
-          await DenialReason.create({
+        for (const dr of item.denials) {
+          lineDenialRecords.push({
             ...dr,
-            remittance_id: remitRecord.id,
+            remittance_id: createdRemits[item.remitIdx].id,
             remittance_line_id: lineRecord.id,
-            claim_id: match?.id || null,
+            claim_id: item.claimId,
           });
-          count++;
         }
+      }
+      if (lineDenialRecords.length > 0) {
+        await DenialReason.bulkCreate(lineDenialRecords);
+        count += lineDenialRecords.length;
       }
     }
 
