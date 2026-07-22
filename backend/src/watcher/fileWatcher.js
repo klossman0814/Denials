@@ -13,6 +13,8 @@ function startWatcher(dir837, dir835) {
     ignored: /(^|[\\/])\\../,
     persistent: true,
     ignoreInitial: false,
+    usePolling: true,
+    interval: 3000,
     awaitWriteFinish: { stabilityThreshold: 2000, pollInterval: 500 },
   });
 
@@ -40,7 +42,7 @@ function startWatcher(dir837, dir835) {
     })
     .on('error', (error) => logger.error(`File watcher error: ${error.message}`));
 
-  logger.info(`File watcher started: watching ${resolved837} and ${resolved835}`);
+  logger.info(`File watcher started (polling mode): watching ${resolved837} and ${resolved835}`);
   return watcher;
 }
 
