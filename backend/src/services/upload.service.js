@@ -7,6 +7,7 @@ const { UploadedFile, Claim, ClaimLine, Remittance, RemittanceFile, RemittanceLi
 const { parse837 } = require('../parsers/edi837.parser');
 const { parse835 } = require('../parsers/edi835.parser');
 const logger = require('../utils/logger');
+const cache = require('../utils/queryCache');
 
 class UploadService {
   async processFile(filePath, fileType, uploadedBy = null) {
@@ -57,6 +58,8 @@ class UploadService {
       } catch (moveErr) {
         logger.warn(`Could not move ${filename} to processed dir: ${moveErr.message}`);
       }
+
+      cache.invalidate('dashboard:');
 
       logger.info(`File ${filename} processed: ${result.count} records`);
       return { file: fileRecord, recordsCreated: result.count };
