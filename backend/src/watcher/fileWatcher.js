@@ -21,8 +21,16 @@ function startWatcher(dir837, dir835) {
       const ext = path.extname(filePath).toLowerCase();
       const dir = path.dirname(filePath);
       let fileType = null;
-      if (dir === resolved837 && (ext === '.837' || ext === '.edi' || ext === '.txt' || ext === '.bak')) fileType = '837';
-      else if (dir === resolved835 && (ext === '.835' || ext === '.edi' || ext === '.txt' || ext === '.dat')) fileType = '835';
+
+      // Use path.relative() for case-insensitive comparison on Windows
+      // Also correctly handles files in subdirectories of the watched dir
+      const rel837 = path.relative(resolved837, dir);
+      const rel835 = path.relative(resolved835, dir);
+      const in837dir = rel837 === '' || (!rel837.startsWith('..') && !path.isAbsolute(rel837));
+      const in835dir = rel835 === '' || (!rel835.startsWith('..') && !path.isAbsolute(rel835));
+
+      if (in837dir && (ext === '.837' || ext === '.edi' || ext === '.txt' || ext === '.bak')) fileType = '837';
+      else if (in835dir && (ext === '.835' || ext === '.edi' || ext === '.txt' || ext === '.dat')) fileType = '835';
 
       if (fileType) {
         logger.info(`File detected: ${filePath} (type: ${fileType})`);
