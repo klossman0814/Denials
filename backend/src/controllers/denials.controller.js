@@ -1,5 +1,5 @@
 const { Op, fn, col, literal } = require('sequelize');
-const { DenialReason, Claim, ClaimLine, Remittance, RemittanceLine } = require('../models');
+const { DenialReason, Claim } = require('../models');
 
 exports.listDenials = async (req, res, next) => {
   try {
@@ -35,55 +35,53 @@ exports.listDenials = async (req, res, next) => {
           ],
           required: true,
         },
-        {
-          model: ClaimLine,
-          attributes: ['procedure_code', 'line_number'],
-          required: false,
-        },
-        {
-          model: Remittance,
-          attributes: ['remittance_date'],
-          required: false,
-        },
-        {
-          model: RemittanceLine,
-          attributes: ['procedure_code', 'line_number'],
-          required: false,
-        },
       ],
       order: [['created_at', 'DESC']],
       limit: parseInt(limit),
       offset,
-      subQuery: false,
+      distinct: true,
     });
 
-    const summaryQuery = await DenialReason.findAll({
-      attributes: [
-        [fn('COUNT', col('DenialReason.id')), 'totalDenials'],
-        [fn('COALESCE', fn('SUM', col('DenialReason.amount')), 0), 'totalDeniedAmount'],
-        [fn('COUNT', literal('DISTINCT "DenialReason"."denial_code"')), 'uniqueCodes'],
-        [fn('COUNT', literal('DISTINCT "Claim"."payer_name"')), 'payersAffected'],
-      ],
-      include: [{ model: Claim, attributes: [], required: true }],
-      where: where,
-      raw: true,
-    });
+    // Summary + top code — only on page 1 (expensive aggregations)
+    let summary = {
+      totalDenials: 0, totalDeniedAmount: 0,
+      uniqueCodes: 0, payersAffected: 0, topCode: null,
+    };
 
-    const topCode = await DenialReason.findAll({
-      attributes: ['denial_code', [fn('COUNT', col('id')), 'count']],
-      where,
-      group: ['denial_code'],
-      order: [[literal('"count"'), 'DESC']],
-      limit: 1,
-      raw: true,
-    });
+    if (parseInt(page) === 1) {
+      const summaryQuery = await DenialReason.findAll({
+        attributes: [
+          [fn('COUNT', col('DenialReason.id')), 'totalDenials'],
+          [fn('COALESCE', fn('SUM', col('DenialReason.amount')), 0), 'totalDeniedAmount'],
+          [fn('COUNT', literal('DISTINCT "DenialReason"."denial_code"')), 'uniqueCodes'],
+          [fn('COUNT', literal('DISTINCT "Claim"."payer_name"')), 'payersAffected'],
+        ],
+        include: [{ model: Claim, attributes: [], required: true }],
+        where: where,
+        raw: true,
+      });
+
+      const topCode = await DenialReason.findAll({
+        attributes: ['denial_code', [fn('COUNT', col('id')), 'count']],
+        where,
+        group: ['denial_code'],
+        order: [[literal('"count"'), 'DESC']],
+        limit: 1,
+        raw: true,
+      });
+
+      summary = {
+        totalDenials: parseInt(summaryQuery[0]?.totalDenials || 0),
+        totalDeniedAmount: parseFloat(summaryQuery[0]?.totalDeniedAmount || 0),
+        uniqueCodes: parseInt(summaryQuery[0]?.uniqueCodes || 0),
+        payersAffected: parseInt(summaryQuery[0]?.payersAffected || 0),
+        topCode: topCode.length ? { code: topCode[0].denial_code, count: parseInt(topCode[0].count) } : null,
+      };
+    }
 
     const denials = rows.map(d => {
       const json = d.toJSON();
       const claim = json.Claim || {};
-      const claimLine = json.ClaimLine || {};
-      const remittance = json.Remittance || {};
-      const remittanceLine = json.RemittanceLine || {};
       return {
         id: json.id,
         denialCode: json.denial_code,
@@ -102,18 +100,10 @@ exports.listDenials = async (req, res, next) => {
         serviceDateStart: claim.service_date_start,
         serviceDateEnd: claim.service_date_end,
         claimStatus: claim.status,
-        procedureCode: claimLine.procedure_code || remittanceLine.procedure_code || null,
-        remittanceDate: remittance.remittance_date || null,
+        procedureCode: null,
+        remittanceDate: null,
       };
     });
-
-    const summary = {
-      totalDenials: parseInt(summaryQuery[0]?.totalDenials || 0),
-      totalDeniedAmount: parseFloat(summaryQuery[0]?.totalDeniedAmount || 0),
-      uniqueCodes: parseInt(summaryQuery[0]?.uniqueCodes || 0),
-      payersAffected: parseInt(summaryQuery[0]?.payersAffected || 0),
-      topCode: topCode.length ? { code: topCode[0].denial_code, count: parseInt(topCode[0].count) } : null,
-    };
 
     res.json({
       denials,

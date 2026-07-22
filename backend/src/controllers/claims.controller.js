@@ -1,4 +1,5 @@
 const { Op } = require('sequelize');
+const sequelize = require('../config/database');
 const { Claim, ClaimLine, Remittance, RemittanceLine, RemittanceFile, DenialReason } = require('../models');
 
 exports.listClaims = async (req, res, next) => {
@@ -17,20 +18,23 @@ exports.listClaims = async (req, res, next) => {
       ];
     }
     const { rows, count } = await Claim.findAndCountAll({
-      where, include: [
-        { model: ClaimLine, required: false },
-        { model: Remittance, required: false, attributes: ['total_paid'] },
-      ],
+      where,
+      attributes: {
+        include: [
+          [
+            sequelize.literal(`(
+              SELECT COALESCE(SUM("total_paid"), 0)
+              FROM "remittances"
+              WHERE "remittances"."claim_id" = "Claim"."id"
+            )`),
+            'total_paid',
+          ],
+        ],
+      },
       order: [['created_at', 'DESC']], limit: parseInt(limit), offset,
     });
 
-    const claims = rows.map(c => {
-      const json = c.toJSON();
-      json.total_paid = (json.Remittances || [])
-        .reduce((sum, r) => sum + (parseFloat(r.total_paid) || 0), 0);
-      delete json.Remittances;
-      return json;
-    });
+    const claims = rows.map(c => c.toJSON());
 
     res.json({ claims, total: count, page: parseInt(page), totalPages: Math.ceil(count / parseInt(limit)) });
   } catch (error) { next(error); }
