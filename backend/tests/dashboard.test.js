@@ -23,4 +23,14 @@ describe('Dashboard API', () => {
     expect(res.status).toBe(200);
     expect(res.body.reasons).toBeDefined();
   });
+
+  it('should return paginated payer breakdown', async () => {
+    const res = await request(app)
+      .get('/api/dashboard/payer-breakdown?page=1&limit=10')
+      .set('Authorization', `Bearer ${token}`);
+    expect(res.status).toBe(200);
+    expect(res.body.breakdown).toBeDefined();
+    expect(Array.isArray(res.body.breakdown)).toBe(true);
+    expect(typeof res.body.total).toBe('number');
+  });
 });
