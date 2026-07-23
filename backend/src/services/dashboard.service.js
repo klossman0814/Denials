@@ -1,5 +1,5 @@
 const { Op, fn, col, literal } = require('sequelize');
-const { Claim, Remittance, DenialReason } = require('../models');
+const { sequelize, Claim, Remittance, DenialReason } = require('../models');
 const cache = require('../utils/queryCache');
 
 class DashboardService {
@@ -57,17 +57,23 @@ class DashboardService {
     const cacheKey = `dashboard:trends:${days}`;
     const cached = await cache.get(cacheKey);
     if (cached) return cached;
-    const since = new Date(); since.setDate(since.getDate() - days);
     const claimTrends = await Claim.findAll({
-      attributes: [[fn('DATE', col('created_at')), 'date'], [fn('COUNT', col('id')), 'count']],
-      where: { created_at: { [Op.gte]: since } },
-      group: [fn('DATE', col('created_at'))], order: [[fn('DATE', col('created_at')), 'ASC']], raw: true,
+      attributes: [
+        [literal("DATE(COALESCE(\"service_date_start\", \"service_date_end\", NULLIF(\"bht_date\", '')::date, \"created_at\"::date))"), 'date'],
+        [fn('COUNT', col('id')), 'count'],
+      ],
+      where: literal(`COALESCE("service_date_start", "service_date_end", NULLIF("bht_date", '')::date, "created_at"::date) >= CURRENT_DATE - INTERVAL '${days} days'`),
+      group: [literal(1)], order: [[literal(1), 'ASC']], raw: true,
     });
-    const denialTrends = await DenialReason.findAll({
-      attributes: [[fn('DATE', col('created_at')), 'date'], [fn('COUNT', col('id')), 'count']],
-      where: { created_at: { [Op.gte]: since } },
-      group: [fn('DATE', col('created_at'))], order: [[fn('DATE', col('created_at')), 'ASC']], raw: true,
-    });
+    const denialTrends = await sequelize.query(
+      `SELECT DATE(COALESCE(c.service_date_start, c.service_date_end, NULLIF(c.bht_date, '')::date, dr.created_at::date)) AS date,
+              COUNT(*) AS count
+       FROM denial_reasons dr
+       LEFT JOIN claims c ON c.id = dr.claim_id
+       WHERE COALESCE(c.service_date_start, c.service_date_end, NULLIF(c.bht_date, '')::date, dr.created_at::date) >= CURRENT_DATE - INTERVAL '${days} days'
+       GROUP BY date ORDER BY date ASC`,
+      { type: sequelize.QueryTypes.SELECT, raw: true }
+    );
     const result = { claimTrends, denialTrends };
     await cache.set(cacheKey, result);
     return result;

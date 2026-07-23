@@ -78,10 +78,10 @@ export default function Dashboard() {
             <div className="card">
               <div className="card-header">Aging Buckets</div>
               <table className="table">
-                <thead><tr><th>Bucket</th><th>Claims</th></tr></thead>
+                <thead><tr><th>Bucket</th><th>Claims</th><th>Total Charges</th></tr></thead>
                 <tbody>
                   {aging.map((a, i) => (
-                    <tr key={i}><td>{a.bucket}</td><td>{fmt(a.count)}</td></tr>
+                    <tr key={i}><td>{a.bucket}</td><td>{fmt(a.count)}</td><td>${fmt(a.totalCharge)}</td></tr>
                   ))}
                 </tbody>
               </table>
