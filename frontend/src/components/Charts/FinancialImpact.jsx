@@ -18,7 +18,17 @@ export default function FinancialImpact({ summary }) {
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
           <XAxis dataKey="metric" tick={{ fontSize: 11, fill: 'var(--text-secondary)' }} />
           <YAxis tick={{ fontSize: 11, fill: 'var(--text-secondary)' }} tickFormatter={formatCurrency} />
-          <Tooltip formatter={(v) => formatCurrency(v)} />
+          <Tooltip
+            formatter={(v) => formatCurrency(v)}
+            contentStyle={{
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '6px',
+              color: 'var(--text-primary)',
+              fontSize: '0.8125rem',
+            }}
+            labelStyle={{ color: 'var(--text-secondary)', fontWeight: 600 }}
+          />
           <Bar dataKey="Amount" radius={[4, 4, 0, 0]}>
             {data.map((e, i) => <rect key={i} fill={e.fill} />)}
           </Bar>

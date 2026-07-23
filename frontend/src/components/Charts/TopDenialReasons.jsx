@@ -11,7 +11,16 @@ export default function TopDenialReasons({ reasons }) {
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
           <XAxis type="number" tick={{ fontSize: 11, fill: 'var(--text-secondary)' }} />
           <YAxis dataKey="code" type="category" tick={{ fontSize: 11, fill: 'var(--text-secondary)' }} width={80} />
-          <Tooltip />
+          <Tooltip
+            contentStyle={{
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '6px',
+              color: 'var(--text-primary)',
+              fontSize: '0.8125rem',
+            }}
+            labelStyle={{ color: 'var(--text-secondary)', fontWeight: 600 }}
+          />
           <Bar dataKey="count" fill="var(--color-error)" radius={[0, 4, 4, 0]} name="Count" />
         </BarChart>
       </ResponsiveContainer>

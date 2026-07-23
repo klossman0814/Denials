@@ -11,7 +11,16 @@ export default function ClaimVolumeChart({ data }) {
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" />
           <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--text-secondary)' }} />
           <YAxis tick={{ fontSize: 11, fill: 'var(--text-secondary)' }} />
-          <Tooltip />
+          <Tooltip
+            contentStyle={{
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '6px',
+              color: 'var(--text-primary)',
+              fontSize: '0.8125rem',
+            }}
+            labelStyle={{ color: 'var(--text-secondary)', fontWeight: 600 }}
+          />
           <Bar dataKey="Claims" fill="var(--color-primary)" radius={[4, 4, 0, 0]} />
         </BarChart>
       </ResponsiveContainer>
