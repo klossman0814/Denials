@@ -41,7 +41,7 @@ class QueryCache {
         logger.info('No Redis URL configured — using in-memory cache only');
       }
     } catch (err) {
-      logger.warn(`Redis cache not available: ${err.message} — using in-memory cache');
+      logger.warn(`Redis cache not available: ${err.message} — using in-memory cache`);
     }
   }
 
