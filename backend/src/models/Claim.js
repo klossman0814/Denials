@@ -15,7 +15,8 @@ const Claim = sequelize.define('Claim', {
   total_charge: { type: DataTypes.DECIMAL(10, 2) },
   service_date_start: { type: DataTypes.DATEONLY },
   service_date_end: { type: DataTypes.DATEONLY },
-  status: { type: DataTypes.STRING(20), defaultValue: 'submitted', validate: { isIn: [['submitted', 'paid', 'denied', 'partial']] } },
+  status: { type: DataTypes.STRING(20), defaultValue: 'submitted', validate: { isIn: [['submitted', 'paid', 'denied', 'partial', 'replaced']] } },
+  superseded_by_id: { type: DataTypes.UUID, allowNull: true },
 }, {
   tableName: 'claims',
   timestamps: true,

@@ -9,8 +9,10 @@ const UploadedFile = sequelize.define('UploadedFile', {
   file_path: { type: DataTypes.TEXT, allowNull: false },
   file_size: { type: DataTypes.BIGINT },
   content_hash: { type: DataTypes.STRING(64) },
-  status: { type: DataTypes.STRING(20), allowNull: false, defaultValue: 'pending', validate: { isIn: [['pending', 'parsing', 'parsed', 'duplicate', 'error']] } },
+  status: { type: DataTypes.STRING(20), allowNull: false, defaultValue: 'pending', validate: { isIn: [['pending', 'parsing', 'parsed', 'duplicate', 'error', 'replaced']] } },
   error_message: { type: DataTypes.TEXT },
+  supersedes_id: { type: DataTypes.UUID, allowNull: true },
+  correction_notes: { type: DataTypes.TEXT, allowNull: true },
   uploaded_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
   parsed_at: { type: DataTypes.DATE },
 }, {
@@ -19,6 +21,7 @@ const UploadedFile = sequelize.define('UploadedFile', {
   underscored: true,
   indexes: [
     { fields: ['content_hash'] },
+    { fields: ['filename'] },
     { fields: ['file_type', 'status'] },
     { fields: ['uploaded_at'] },
     { fields: ['uploaded_by'] },
