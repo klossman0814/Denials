@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { uploadApi } from '../services/upload.api';
 import FileUploadZone from '../components/FileUploadZone';
 import StatusBadge from '../components/StatusBadge';
@@ -10,6 +11,7 @@ export default function Upload() {
   const [uploadResult, setUploadResult] = useState(null);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
+  const [supersedes, setSupersedes] = useState({ '837': '', '835': '' });
   const limit = 25;
 
   const fetchFiles = useCallback(() => {
@@ -19,12 +21,17 @@ export default function Upload() {
 
   useEffect(() => { fetchFiles(); }, [fetchFiles, page]);
 
+  const supersedesOptions = (type) =>
+    files.filter(f => f.file_type === type && f.status === 'parsed' && !f.SupersededBy)
+      .map(f => ({ id: f.id, filename: f.filename, uploaded_at: f.uploaded_at }));
+
   const handleUpload = async (type, file) => {
     setUploading(file.name);
     setUploadResult(null);
     try {
-      const res = await uploadApi.upload(type, file);
+      const res = await uploadApi.uploadWithSupersedes(type, file, supersedes[type] || undefined);
       setUploadResult({ success: true, file: res.data.file, message: res.data.message || 'File uploaded and processed successfully.' });
+      setSupersedes(s => ({ ...s, [type]: '' }));
       fetchFiles();
     } catch (err) {
       setUploadResult({ success: false, message: err.response?.data?.error || err.message });
@@ -55,6 +62,21 @@ export default function Upload() {
             accept=".edi,.837,.txt,.bak"
             onUpload={(file) => handleUpload('837', file)}
           />
+          {supersedesOptions('837').length > 0 && (
+            <div style={{ marginTop: '0.5rem' }}>
+              <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.25rem' }}>
+                This file corrects:
+              </label>
+              <select className="form-input" value={supersedes['837']}
+                onChange={e => setSupersedes(s => ({ ...s, '837': e.target.value }))}
+                style={{ fontSize: '0.75rem', width: '100%' }}>
+                <option value="">— No correction —</option>
+                {supersedesOptions('837').map(f => (
+                  <option key={f.id} value={f.id}>{f.filename} ({new Date(f.uploaded_at).toLocaleDateString()})</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
         <div>
           <h3 style={{ fontSize: '0.875rem', marginBottom: '0.5rem' }}>EDI 835 (Payments)</h3>
@@ -63,6 +85,21 @@ export default function Upload() {
             accept=".edi,.835,.txt,.dat"
             onUpload={(file) => handleUpload('835', file)}
           />
+          {supersedesOptions('835').length > 0 && (
+            <div style={{ marginTop: '0.5rem' }}>
+              <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.25rem' }}>
+                This file corrects:
+              </label>
+              <select className="form-input" value={supersedes['835']}
+                onChange={e => setSupersedes(s => ({ ...s, '835': e.target.value }))}
+                style={{ fontSize: '0.75rem', width: '100%' }}>
+                <option value="">— No correction —</option>
+                {supersedesOptions('835').map(f => (
+                  <option key={f.id} value={f.id}>{f.filename} ({new Date(f.uploaded_at).toLocaleDateString()})</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
       </div>
 
@@ -75,13 +112,24 @@ export default function Upload() {
         ) : (
           <>
           <table className="table">
-            <thead><tr><th>Filename</th><th>Type</th><th>Status</th><th>Uploaded</th></tr></thead>
+            <thead><tr><th>Filename</th><th>Type</th><th>Status</th><th>Correction</th><th>Uploaded</th></tr></thead>
             <tbody>
               {files.map(f => (
                 <tr key={f.id}>
                   <td style={{ fontFamily: 'monospace', fontSize: '0.8125rem' }}>{f.filename}</td>
                   <td>{f.file_type}</td>
                   <td><StatusBadge status={f.status} /></td>
+                  <td style={{ fontSize: '0.8125rem' }}>
+                    {f.Supersedes ? (
+                      <span style={{ color: 'var(--color-warning)' }}>
+                        Corrects <Link to={`/files/${f.Supersedes.id}`} style={{ textDecoration: 'underline' }}>{f.Supersedes.filename}</Link>
+                      </span>
+                    ) : f.SupersededBy ? (
+                      <span style={{ color: 'var(--text-secondary)' }}>Replaced</span>
+                    ) : (
+                      <span style={{ color: 'var(--text-secondary)' }}>—</span>
+                    )}
+                  </td>
                   <td style={{ fontSize: '0.8125rem' }}>{f.uploaded_at ? new Date(f.uploaded_at).toLocaleString() : '—'}</td>
                 </tr>
               ))}
