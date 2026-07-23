@@ -11,7 +11,6 @@ class QueryCache {
     try {
       if (config.redis.url) {
         this._redis = new Redis(config.redis.url, {
-          lazyConnect: true,
           maxRetriesPerRequest: 3,
           retryStrategy: (times) => {
             if (times > 3) return null;
@@ -20,10 +19,7 @@ class QueryCache {
           enableOfflineQueue: false,
         });
 
-        this._redis.on('ready', () => {
-          this._redisAvailable = true;
-          logger.info('Redis cache connected');
-        });
+        this._redisAvailable = true;
 
         this._redis.on('error', (err) => {
           this._redisAvailable = false;
@@ -34,8 +30,17 @@ class QueryCache {
           this._redisAvailable = false;
         });
 
-        this._redis.connect().catch((err) => {
-          logger.warn(`Redis cache connection failed: ${err.message} — using in-memory cache`);
+        this._redis.on('end', () => {
+          this._redisAvailable = false;
+        });
+
+        this._redis.on('reconnecting', () => {
+          this._redisAvailable = false;
+        });
+
+        this._redis.on('connect', () => {
+          this._redisAvailable = true;
+          logger.info('Redis cache connected');
         });
       } else {
         logger.info('No Redis URL configured — using in-memory cache only');

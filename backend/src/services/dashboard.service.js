@@ -16,10 +16,20 @@ class DashboardService {
     const totalAdjustments = await Remittance.sum('adjustment_amount') || 0;
     const deniedCount = statusDistribution.find(s => s.status === 'denied')?.count || 0;
     const denialRate = totalClaims > 0 ? parseFloat((deniedCount / totalClaims * 100).toFixed(1)) : 0;
+    const deniedAmount = await Claim.sum('total_charge', { where: { status: 'denied' } }) || 0;
+    const avgResolutionDays = await Claim.findOne({
+      attributes: [
+        [fn('AVG', literal('EXTRACT(EPOCH FROM ("updated_at" - "created_at")) / 86400')), 'avg_days'],
+      ],
+      where: { status: { [Op.in]: ['paid', 'denied', 'partial'] } },
+      raw: true,
+    });
     const result = {
       totalClaims, totalCharges: parseFloat(totalCharges.toFixed(2)),
       totalPayments: parseFloat(totalPayments.toFixed(2)),
       totalAdjustments: parseFloat(totalAdjustments.toFixed(2)), denialRate,
+      deniedCount, deniedAmount: parseFloat(deniedAmount.toFixed(2)),
+      avgResolutionDays: avgResolutionDays?.avg_days ? parseFloat(parseFloat(avgResolutionDays.avg_days).toFixed(1)) : 0,
       statusDistribution: statusDistribution.map(s => ({ status: s.status, count: parseInt(s.count) })),
     };
     await cache.set('dashboard:summary', result);
@@ -81,23 +91,36 @@ class DashboardService {
   async getAging() {
     const cached = await cache.get('dashboard:aging');
     if (cached) return cached;
-    const claims = await Claim.findAll({
-      attributes: ['id', 'claim_id', 'status', 'created_at', 'patient_last_name', 'patient_first_name'],
-      include: [{ model: Remittance, attributes: ['remittance_date', 'status'], required: false }],
-      order: [['created_at', 'DESC']], limit: 50,
+    const buckets = await Claim.findAll({
+      attributes: [
+        [
+          literal(`CASE
+            WHEN "created_at" >= NOW() - INTERVAL '30 days' THEN '0-30 days'
+            WHEN "created_at" >= NOW() - INTERVAL '60 days' THEN '31-60 days'
+            WHEN "created_at" >= NOW() - INTERVAL '90 days' THEN '61-90 days'
+            WHEN "created_at" >= NOW() - INTERVAL '120 days' THEN '91-120 days'
+            ELSE '120+ days'
+          END`),
+          'bucket',
+        ],
+        [fn('COUNT', col('id')), 'count'],
+        [fn('COALESCE', fn('SUM', col('total_charge')), 0), 'total_charge'],
+      ],
+      group: [literal('bucket')],
+      order: [[literal('MIN("created_at")'), 'ASC']],
+      raw: true,
     });
-    const result = claims.map(c => {
-      const daysAging = Math.floor((new Date() - new Date(c.created_at)) / (1000 * 60 * 60 * 24));
-      const resolvedDate = c.Remittances?.[0]?.remittance_date || null;
-      const daysToResolve = resolvedDate
-        ? Math.floor((new Date(resolvedDate) - new Date(c.created_at)) / (1000 * 60 * 60 * 24))
-        : null;
-      return {
-        id: c.id, claimId: c.claim_id,
-        patient: `${c.patient_first_name} ${c.patient_last_name}`.trim(),
-        status: c.status, daysAging, daysToResolve,
-      };
-    });
+
+    // Ensure all buckets are present even if empty
+    const allBuckets = ['0-30 days', '31-60 days', '61-90 days', '91-120 days', '120+ days'];
+    const bucketMap = {};
+    buckets.forEach(b => { bucketMap[b.bucket] = { count: parseInt(b.count), totalCharge: parseFloat(b.total_charge) }; });
+    const result = allBuckets.map(bucket => ({
+      bucket,
+      count: bucketMap[bucket]?.count || 0,
+      totalCharge: bucketMap[bucket]?.totalCharge || 0,
+    }));
+
     await cache.set('dashboard:aging', result);
     return result;
   }
