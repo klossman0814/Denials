@@ -6,29 +6,32 @@ class DashboardService {
   async getSummary() {
     const cached = await cache.get('dashboard:summary');
     if (cached) return cached;
-    const totalClaims = await Claim.count();
-    const statusDistribution = await Claim.findAll({
-      attributes: ['status', [fn('COUNT', col('id')), 'count']],
-      group: ['status'], raw: true,
-    });
-    const totalCharges = await Claim.sum('total_charge') || 0;
-    const totalPayments = await Remittance.sum('total_paid') || 0;
-    const totalAdjustments = await Remittance.sum('adjustment_amount') || 0;
+
+    // Run all independent queries in parallel
+    const [
+      totalClaims,
+      statusDistribution,
+      totalCharges,
+      totalPayments,
+      totalAdjustments,
+      deniedAmount,
+      avgResolutionDays,
+      claimsNo835,
+      remitsNo837,
+    ] = await Promise.all([
+      Claim.count(),
+      Claim.findAll({ attributes: ['status', [fn('COUNT', col('id')), 'count']], group: ['status'], raw: true }),
+      Claim.sum('total_charge').then(r => r || 0),
+      Remittance.sum('total_paid').then(r => r || 0),
+      Remittance.sum('adjustment_amount').then(r => r || 0),
+      Claim.sum('total_charge', { where: { status: 'denied' } }).then(r => r || 0),
+      Claim.findOne({ attributes: [[fn('AVG', col('days_to_resolve')), 'avg_days']], where: { status: { [Op.in]: ['paid', 'denied', 'partial'] }, days_to_resolve: { [Op.gte]: 0 } }, raw: true }),
+      sequelize.query('SELECT COUNT(*) FROM "claims" c WHERE NOT EXISTS (SELECT 1 FROM "remittances" r WHERE r."claim_id" = c."id")', { type: sequelize.QueryTypes.SELECT, plain: true }).then(r => parseInt(r.count, 10)),
+      Remittance.count({ where: { claim_id: null } }),
+    ]);
+
     const deniedCount = statusDistribution.find(s => s.status === 'denied')?.count || 0;
     const denialRate = totalClaims > 0 ? parseFloat((deniedCount / totalClaims * 100).toFixed(1)) : 0;
-    const deniedAmount = await Claim.sum('total_charge', { where: { status: 'denied' } }) || 0;
-    const avgResolutionDays = await Claim.findOne({
-      attributes: [
-        [fn('AVG', col('days_to_resolve')), 'avg_days'],
-      ],
-      where: { status: { [Op.in]: ['paid', 'denied', 'partial'] }, days_to_resolve: { [Op.gte]: 0 } },
-      raw: true,
-    });
-    const claimsNo835 = await sequelize.query(
-      'SELECT COUNT(*) FROM "claims" c WHERE NOT EXISTS (SELECT 1 FROM "remittances" r WHERE r."claim_id" = c."id")',
-      { type: sequelize.QueryTypes.SELECT, plain: true }
-    ).then(r => parseInt(r.count, 10));
-    const remitsNo837 = await Remittance.count({ where: { claim_id: null } });
     const result = {
       totalClaims, totalCharges: parseFloat(totalCharges.toFixed(2)),
       totalPayments: parseFloat(totalPayments.toFixed(2)),
@@ -38,7 +41,7 @@ class DashboardService {
       claimsNo835, remitsNo837,
       statusDistribution: statusDistribution.map(s => ({ status: s.status, count: parseInt(s.count) })),
     };
-    await cache.set('dashboard:summary', result);
+    await cache.set('dashboard:summary', result, 1800000); // 30 min TTL
     return result;
   }
 
@@ -55,7 +58,7 @@ class DashboardService {
       code: r.denial_code, group: r.group_code,
       count: parseInt(r.count), totalAmount: parseFloat(r.total_amount || 0).toFixed(2),
     }));
-    await cache.set(cacheKey, result);
+    await cache.set(cacheKey, result, 1800000); // 30 min TTL
     return result;
   }
 
@@ -105,7 +108,7 @@ class DashboardService {
     });
     const total = parseInt(totalResult[0]?.total || 0);
     const result = { breakdown, total };
-    await cache.set(cacheKey, result);
+    await cache.set(cacheKey, result, 1800000); // 30 min TTL
     return result;
   }
 
@@ -142,7 +145,7 @@ class DashboardService {
       totalCharge: bucketMap[bucket]?.totalCharge || 0,
     }));
 
-    await cache.set('dashboard:aging', result);
+    await cache.set('dashboard:aging', result, 1800000); // 30 min TTL
     return result;
   }
 }

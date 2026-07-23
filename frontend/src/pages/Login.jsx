@@ -8,6 +8,7 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const [isRegister, setIsRegister] = useState(false);
   const { login, register } = useAuth();
   const { theme, toggleTheme } = useTheme();
@@ -16,12 +17,15 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
     try {
       if (isRegister) await register({ username, email, password });
       else await login(username, password);
       navigate('/dashboard');
     } catch (err) {
       setError(err.response?.data?.error || err.message || 'An error occurred');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -57,8 +61,9 @@ export default function Login() {
             <label className="form-label" htmlFor="password">Password</label>
             <input id="password" className="form-input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
           </div>
-          <button type="submit" className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', marginTop: '0.5rem' }}>
-            {isRegister ? 'Create Account' : 'Sign In'}
+          <button type="submit" className="btn btn-primary" disabled={loading}
+            style={{ width: '100%', justifyContent: 'center', marginTop: '0.5rem' }}>
+            {loading ? 'Signing in...' : (isRegister ? 'Create Account' : 'Sign In')}
           </button>
         </form>
 
