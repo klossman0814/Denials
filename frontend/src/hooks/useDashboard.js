@@ -25,6 +25,7 @@ export function useDashboard() {
       setPayerBreakdown(pb.data.breakdown);
       setPayerTotalPages(Math.ceil(pb.data.total / 10) || 1);
       setPayerTotal(pb.data.total);
+      setPayerPage(1);
       setAging(a.data.aging);
     } catch (err) { setError(err.response?.data?.error || err.message); }
     finally { setLoading(false); }
