@@ -1,9 +1,10 @@
 const request = require('supertest');
 const app = require('../src/app');
-const { User } = require('../src/models');
+const { sequelize, User } = require('../src/models');
 
 describe('Dashboard API', () => {
   let token;
+  beforeAll(async () => { await sequelize.sync(); });
   beforeEach(async () => {
     await User.destroy({ where: {} });
     const res = await request(app).post('/api/auth/register').send({ username: 'duser', email: 'd@test.com', password: 'test123' });

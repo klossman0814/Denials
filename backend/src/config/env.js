@@ -9,7 +9,7 @@ module.exports = {
   db: {
     host: process.env.DB_HOST || 'localhost',
     port: parseInt(process.env.DB_PORT, 10) || 5441,
-    name: process.env.DB_NAME || 'denials_db',
+    name: process.env.NODE_ENV === 'test' ? (process.env.DB_NAME || 'denials_test') : (process.env.DB_NAME || 'denials_db'),
     user: process.env.DB_USER || 'denials_user',
     password: process.env.DB_PASSWORD || 'denials_pass',
   },
