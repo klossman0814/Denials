@@ -24,12 +24,18 @@ class DashboardService {
       where: { status: { [Op.in]: ['paid', 'denied', 'partial'] }, days_to_resolve: { [Op.gte]: 0 } },
       raw: true,
     });
+    const claimsNo835 = await sequelize.query(
+      'SELECT COUNT(*) FROM "claims" c WHERE NOT EXISTS (SELECT 1 FROM "remittances" r WHERE r."claim_id" = c."id")',
+      { type: sequelize.QueryTypes.SELECT, plain: true }
+    ).then(r => parseInt(r.count, 10));
+    const remitsNo837 = await Remittance.count({ where: { claim_id: null } });
     const result = {
       totalClaims, totalCharges: parseFloat(totalCharges.toFixed(2)),
       totalPayments: parseFloat(totalPayments.toFixed(2)),
       totalAdjustments: parseFloat(totalAdjustments.toFixed(2)), denialRate,
       deniedCount, deniedAmount: parseFloat(deniedAmount.toFixed(2)),
       avgResolutionDays: avgResolutionDays?.avg_days ? parseFloat(parseFloat(avgResolutionDays.avg_days).toFixed(2)) : 0,
+      claimsNo835, remitsNo837,
       statusDistribution: statusDistribution.map(s => ({ status: s.status, count: parseInt(s.count) })),
     };
     await cache.set('dashboard:summary', result);

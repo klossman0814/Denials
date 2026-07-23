@@ -31,6 +31,7 @@ const dashboardRoutes = require('./routes/dashboard.routes');
 const adminRoutes = require('./routes/admin.routes');
 const denialsRoutes = require('./routes/denials.routes');
 const remittancesRoutes = require('./routes/remittances.routes');
+const mismatchesRoutes = require('./routes/mismatches.routes');
 
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/upload', uploadRoutes);
@@ -39,6 +40,7 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/denials', denialsRoutes);
 app.use('/api/remittances', remittancesRoutes);
+app.use('/api/mismatches', mismatchesRoutes);
 
 app.use(errorMiddleware);
 

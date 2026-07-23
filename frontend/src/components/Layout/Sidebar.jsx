@@ -7,6 +7,7 @@ const navItems = [
   { path: '/denials', label: 'Denials', icon: '🚫' },
   { path: '/remittances', label: 'Remittances', icon: '💳' },
   { path: '/upload', label: 'Upload Files', icon: '📤' },
+  { path: '/mismatches', label: 'Mismatches', icon: '⚠️' },
   { path: '/admin', label: 'Admin', icon: '⚙️', adminOnly: true },
 ];
 

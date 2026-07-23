@@ -9,6 +9,7 @@ import Claims from './pages/Claims';
 import ClaimDetail from './pages/ClaimDetail';
 import Upload from './pages/Upload';
 import FileDetail from './pages/FileDetail';
+import Mismatches from './pages/Mismatches';
 import Admin from './pages/Admin';
 import Denials from './pages/Denials';
 import Remittances from './pages/Remittances';
@@ -49,6 +50,7 @@ export default function App() {
               <Route path="/remittances/:id" element={<RemittanceDetail />} />
               <Route path="/upload" element={<Upload />} />
               <Route path="/files/:id" element={<FileDetail />} />
+              <Route path="/mismatches" element={<Mismatches />} />
               <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />

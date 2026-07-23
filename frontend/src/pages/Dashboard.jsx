@@ -31,6 +31,8 @@ export default function Dashboard() {
     { label: 'Denial Rate', value: pct(summary?.denialRate), color: 'var(--color-warning)' },
     { label: 'Financial Impact', value: currency(summary?.deniedAmount), color: 'var(--color-error)' },
     { label: 'Avg Days to Resolve', value: fmt(summary?.avgResolutionDays) + 'd', color: 'var(--color-primary)' },
+    { label: 'Claims w/o 835', value: fmt(summary?.claimsNo835), color: 'var(--color-error)' },
+    { label: 'Remits w/o 837', value: fmt(summary?.remitsNo837), color: 'var(--color-warning)' },
   ];
 
   return (
