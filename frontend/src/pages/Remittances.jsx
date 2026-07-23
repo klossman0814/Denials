@@ -41,7 +41,7 @@ export default function Remittances() {
       <div className="stat-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', marginBottom: '1rem' }}>
         <SummaryCard label="Total Files" value={total} />
         <SummaryCard label="Total Payments" value={currency(totalPayment)} />
-        <SummaryCard label="Search" value={`"${search}"`} />
+        {search && <SummaryCard label="Search" value={`"${search}"`} />}
       </div>
 
       <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
