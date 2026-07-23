@@ -10,10 +10,10 @@ const DenialReason = require('./DenialReason');
 const Setting = require('./Setting');
 
 User.associate?.({ UploadedFile });
-UploadedFile.associate?.({ User, Claim, Remittance, RemittanceFile });
-Claim.associate?.({ UploadedFile, ClaimLine, Remittance, DenialReason });
+UploadedFile.associate?.({ User, Claim, Remittance, RemittanceFile, UploadedFile });
+Claim.associate?.({ UploadedFile, ClaimLine, Remittance, DenialReason, Claim });
 ClaimLine.associate?.({ Claim });
-Remittance.associate?.({ UploadedFile, Claim, DenialReason, RemittanceFile, RemittanceLine });
+Remittance.associate?.({ UploadedFile, Claim, DenialReason, RemittanceFile, RemittanceLine, Remittance });
 RemittanceFile.associate?.({ UploadedFile, Remittance });
 RemittanceLine.associate?.({ Remittance, DenialReason });
 DenialReason.associate?.({ Remittance, Claim, ClaimLine, RemittanceLine });

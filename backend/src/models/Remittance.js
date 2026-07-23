@@ -42,6 +42,7 @@ Remittance.associate = (models) => {
   Remittance.belongsTo(models.UploadedFile, { foreignKey: 'file_id' });
   Remittance.belongsTo(models.Claim, { foreignKey: 'claim_id' });
   Remittance.belongsTo(models.RemittanceFile, { foreignKey: 'remittance_file_id' });
+  Remittance.belongsTo(models.Remittance, { as: 'SupersededBy', foreignKey: 'superseded_by_id' });
   Remittance.hasMany(models.DenialReason, { foreignKey: 'remittance_id' });
   Remittance.hasMany(models.RemittanceLine, { foreignKey: 'remittance_id' });
 };

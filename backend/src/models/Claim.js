@@ -35,6 +35,7 @@ const Claim = sequelize.define('Claim', {
 
 Claim.associate = (models) => {
   Claim.belongsTo(models.UploadedFile, { foreignKey: 'file_id' });
+  Claim.belongsTo(models.Claim, { as: 'SupersededBy', foreignKey: 'superseded_by_id' });
   Claim.hasMany(models.ClaimLine, { foreignKey: 'claim_id' });
   Claim.hasMany(models.Remittance, { foreignKey: 'claim_id' });
   Claim.hasMany(models.DenialReason, { foreignKey: 'claim_id' });

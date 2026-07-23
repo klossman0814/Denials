@@ -32,6 +32,8 @@ const UploadedFile = sequelize.define('UploadedFile', {
 
 UploadedFile.associate = (models) => {
   UploadedFile.belongsTo(models.User, { foreignKey: 'uploaded_by' });
+  UploadedFile.belongsTo(models.UploadedFile, { as: 'Supersedes', foreignKey: 'supersedes_id' });
+  UploadedFile.hasOne(models.UploadedFile, { as: 'SupersededBy', foreignKey: 'supersedes_id' });
   UploadedFile.hasMany(models.Claim, { foreignKey: 'file_id' });
   UploadedFile.hasMany(models.Remittance, { foreignKey: 'file_id' });
 };
