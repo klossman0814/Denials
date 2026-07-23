@@ -1,6 +1,7 @@
 const chokidar = require('chokidar');
 const path = require('path');
 const uploadService = require('../services/upload.service');
+const ediQueue = require('../queue/ediQueue');
 const logger = require('../utils/logger');
 
 let watcher = null;
@@ -36,8 +37,13 @@ function startWatcher(dir837, dir835) {
 
       if (fileType) {
         logger.info(`File detected: ${filePath} (type: ${fileType})`);
-        try { await uploadService.processFile(filePath, fileType); }
-        catch (error) { logger.error(`Auto-processing failed for ${filePath}: ${error.message}`); }
+        if (ediQueue) {
+          await ediQueue.add({ filePath, fileType, uploadedBy: null });
+          logger.info(`File queued for processing: ${filePath}`);
+        } else {
+          try { await uploadService.processFile(filePath, fileType); }
+          catch (error) { logger.error(`Auto-processing failed for ${filePath}: ${error.message}`); }
+        }
       }
     })
     .on('error', (error) => logger.error(`File watcher error: ${error.message}`));

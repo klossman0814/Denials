@@ -28,6 +28,7 @@ const Claim = sequelize.define('Claim', {
     { fields: ['status', 'created_at'] },
     { fields: ['patient_last_name'] },
     { fields: ['patient_first_name'] },
+    { fields: ['file_id'] },
   ],
 });
 

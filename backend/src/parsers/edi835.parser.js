@@ -9,6 +9,49 @@ const {
   getDescription,
 } = require('./edi.utils');
 
+// CAS adjustment reason code descriptions (industry-standard)
+const CAS_DESCRIPTIONS = {
+  'CO': 'Contractual Obligation',
+  'PR': 'Patient Responsibility',
+  'OA': 'Other Adjustment',
+  'PI': 'Payer Initiated',
+  'CR': 'Contractual',
+  'CO-1': 'Deductible',
+  'CO-2': 'Coinsurance',
+  'CO-3': 'Co-payment',
+  'CO-4': 'Non-covered service',
+  'CO-22': 'Payment adjusted based on prior payer(s) payments',
+  'CO-23': 'Payment adjusted because charge exceeds fee schedule',
+  'CO-29': 'Payment reduced or denied based on time limits',
+  'CO-45': 'Charge exceeds fee schedule/maximum allowable',
+  'CO-50': 'Payment adjusted based on multiple procedure rule',
+  'CO-51': 'Payment denied based on medical necessity',
+  'CO-97': 'The benefit for this service is included in the payment/allowance for another service',
+  'CO-109': 'Claim/service not covered by this payer/contractor',
+  'CO-151': 'Payment denied based on clinical validity',
+  'CO-204': 'This service/equipment/drug is not covered under the patient\'s current benefit plan',
+  'PR-1': 'Deductible amount',
+  'PR-2': 'Coinsurance amount',
+  'PR-3': 'Co-payment amount',
+  'PR-4': 'Non-covered charge',
+  'PR-6': 'Prior payer(s)\'s payment',
+  'OA-23': 'Payment adjusted because charge exceeds fee schedule',
+  'OA-30': 'Payment adjusted because patient is under age limit',
+  'OA-92': 'Payment reduced due to manual review',
+  'OA-100': 'Payment made to patient/insured',
+  'OA-106': 'Payment adjusted based on a contractual agreement',
+  'OA-108': 'Payment adjusted based on a bundling/multiple procedure rule',
+  'OA-109': 'Claim/service not covered by this payer/contractor',
+  'OA-110': 'Payment adjusted because service not authorized',
+  'PI-1': 'Payer responsibility for this claim/service',
+  'PI-30': 'Patient is under age limit',
+};
+
+function getCasDescription(groupCode, code) {
+  const fullCode = `${groupCode}-${code}`;
+  return CAS_DESCRIPTIONS[fullCode] || CAS_DESCRIPTIONS[groupCode] || '';
+}
+
 /**
  * Parse EDI 835 Health Care Claim Payment/Advice
  *
@@ -404,7 +447,7 @@ function parse835(content) {
               denial_code: `${casGroupCode}-${code}`,
               group_code: casGroupCode,
               amount,
-              reason_description: '',
+              reason_description: getCasDescription(casGroupCode, code),
             });
           }
         } else if (currentRemittance) {
@@ -415,7 +458,7 @@ function parse835(content) {
               denial_code: `${casGroupCode}-${code}`,
               group_code: casGroupCode,
               amount,
-              reason_description: '',
+              reason_description: getCasDescription(casGroupCode, code),
             });
           }
         }

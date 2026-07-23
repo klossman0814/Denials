@@ -29,6 +29,11 @@ const Remittance = sequelize.define('Remittance', {
   indexes: [
     { fields: ['claim_id'] },
     { fields: ['remittance_file_id'] },
+    { fields: ['file_id'] },
+    { fields: ['total_paid'] },
+    { fields: ['adjustment_amount'] },
+    { fields: ['created_at'] },
+    { fields: ['status'] },
   ],
 });
 

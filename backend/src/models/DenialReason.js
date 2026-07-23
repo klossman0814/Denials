@@ -15,6 +15,11 @@ const DenialReason = sequelize.define('DenialReason', {
     { fields: ['denial_code'] },
     { fields: ['claim_id'] },
     { fields: ['remittance_id'] },
+    { fields: ['claim_line_id'] },
+    { fields: ['remittance_line_id'] },
+    { fields: ['created_at'] },
+    { fields: ['group_code'] },
+    { fields: ['amount'] },
   ],
 });
 

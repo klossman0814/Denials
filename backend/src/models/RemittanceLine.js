@@ -12,7 +12,15 @@ const RemittanceLine = sequelize.define('RemittanceLine', {
   service_date: { type: DataTypes.DATEONLY },
   line_control_number: { type: DataTypes.STRING(50) },
   patient_liability: { type: DataTypes.DECIMAL(10, 2) },
-}, { tableName: 'remittance_lines', timestamps: false, underscored: true });
+}, {
+  tableName: 'remittance_lines',
+  timestamps: false,
+  underscored: true,
+  indexes: [
+    { fields: ['remittance_id'] },
+    { fields: ['procedure_code'] },
+  ],
+});
 
 RemittanceLine.associate = (models) => {
   RemittanceLine.belongsTo(models.Remittance, { foreignKey: 'remittance_id' });

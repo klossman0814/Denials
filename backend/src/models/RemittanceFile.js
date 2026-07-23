@@ -20,6 +20,7 @@ const RemittanceFile = sequelize.define('RemittanceFile', {
   underscored: true,
   indexes: [
     { fields: ['payer_name'] },
+    { fields: ['file_id'] },
   ],
 });
 

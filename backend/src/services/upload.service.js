@@ -59,7 +59,7 @@ class UploadService {
         logger.warn(`Could not move ${filename} to processed dir: ${moveErr.message}`);
       }
 
-      cache.invalidate('dashboard:');
+      await cache.invalidate('dashboard:');
 
       logger.info(`File ${filename} processed: ${result.count} records`);
       return { file: fileRecord, recordsCreated: result.count };

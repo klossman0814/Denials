@@ -4,7 +4,7 @@ const cache = require('../utils/queryCache');
 
 class DashboardService {
   async getSummary() {
-    const cached = cache.get('dashboard:summary');
+    const cached = await cache.get('dashboard:summary');
     if (cached) return cached;
     const totalClaims = await Claim.count();
     const statusDistribution = await Claim.findAll({
@@ -22,13 +22,13 @@ class DashboardService {
       totalAdjustments: parseFloat(totalAdjustments.toFixed(2)), denialRate,
       statusDistribution: statusDistribution.map(s => ({ status: s.status, count: parseInt(s.count) })),
     };
-    cache.set('dashboard:summary', result);
+    await cache.set('dashboard:summary', result);
     return result;
   }
 
   async getDenialReasons(limit = 10) {
     const cacheKey = `dashboard:denialReasons:${limit}`;
-    const cached = cache.get(cacheKey);
+    const cached = await cache.get(cacheKey);
     if (cached) return cached;
     const reasons = await DenialReason.findAll({
       attributes: ['denial_code', 'group_code', [fn('COUNT', col('id')), 'count'], [fn('SUM', col('amount')), 'total_amount']],
@@ -39,13 +39,13 @@ class DashboardService {
       code: r.denial_code, group: r.group_code,
       count: parseInt(r.count), totalAmount: parseFloat(r.total_amount || 0).toFixed(2),
     }));
-    cache.set(cacheKey, result);
+    await cache.set(cacheKey, result);
     return result;
   }
 
   async getTrends(days = 30) {
     const cacheKey = `dashboard:trends:${days}`;
-    const cached = cache.get(cacheKey);
+    const cached = await cache.get(cacheKey);
     if (cached) return cached;
     const since = new Date(); since.setDate(since.getDate() - days);
     const claimTrends = await Claim.findAll({
@@ -59,12 +59,12 @@ class DashboardService {
       group: [fn('DATE', col('created_at'))], order: [[fn('DATE', col('created_at')), 'ASC']], raw: true,
     });
     const result = { claimTrends, denialTrends };
-    cache.set(cacheKey, result);
+    await cache.set(cacheKey, result);
     return result;
   }
 
   async getPayerBreakdown() {
-    const cached = cache.get('dashboard:payerBreakdown');
+    const cached = await cache.get('dashboard:payerBreakdown');
     if (cached) return cached;
     const payers = await Claim.findAll({
       attributes: ['payer_name', [fn('COUNT', col('id')), 'count'], [fn('SUM', col('total_charge')), 'total_charge']],
@@ -74,12 +74,12 @@ class DashboardService {
       payer: p.payer_name || 'Unknown', count: parseInt(p.count),
       totalCharge: parseFloat(p.total_charge || 0).toFixed(2),
     }));
-    cache.set('dashboard:payerBreakdown', result);
+    await cache.set('dashboard:payerBreakdown', result);
     return result;
   }
 
   async getAging() {
-    const cached = cache.get('dashboard:aging');
+    const cached = await cache.get('dashboard:aging');
     if (cached) return cached;
     const claims = await Claim.findAll({
       attributes: ['id', 'claim_id', 'status', 'created_at', 'patient_last_name', 'patient_first_name'],
@@ -98,7 +98,7 @@ class DashboardService {
         status: c.status, daysAging, daysToResolve,
       };
     });
-    cache.set('dashboard:aging', result);
+    await cache.set('dashboard:aging', result);
     return result;
   }
 }

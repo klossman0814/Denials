@@ -20,6 +20,10 @@ const UploadedFile = sequelize.define('UploadedFile', {
   indexes: [
     { fields: ['content_hash'] },
     { fields: ['file_type', 'status'] },
+    { fields: ['uploaded_at'] },
+    { fields: ['uploaded_by'] },
+    { fields: ['status'] },
+    { fields: ['file_type'] },
   ],
 });
 
