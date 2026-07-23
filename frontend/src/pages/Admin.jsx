@@ -34,6 +34,25 @@ export default function Admin() {
     }
   };
 
+  const handleActiveToggle = async (userId, currentActive) => {
+    try {
+      await api.put(`/admin/users/${userId}/active`, { active: !currentActive });
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, active: !currentActive } : u));
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to toggle active status');
+    }
+  };
+
+  const handleDeleteUser = async (userId, username) => {
+    if (!window.confirm(`Are you sure you want to permanently delete user "${username}"? This cannot be undone.`)) return;
+    try {
+      await api.delete(`/admin/users/${userId}`);
+      setUsers(prev => prev.filter(u => u.id !== userId));
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to delete user');
+    }
+  };
+
   const handleDelete = async (type) => {
     const label = type === '837' ? '837 claims' : '835 remittances';
     if (!window.confirm(`Are you sure you want to delete ALL ${label} data? This cannot be undone.`)) return;
@@ -113,19 +132,43 @@ export default function Admin() {
           <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', padding: '1rem' }}>No users found.</p>
         ) : (
           <table className="table">
-            <thead><tr><th>Username</th><th>Email</th><th>Role</th><th>Actions</th></tr></thead>
+            <thead><tr><th>Username</th><th>Email</th><th>Role</th><th>Active</th><th>Actions</th></tr></thead>
             <tbody>
               {users.map(u => (
-                <tr key={u.id}>
+                <tr key={u.id} style={{ opacity: u.active === false ? 0.5 : 1 }}>
                   <td>{u.username}</td>
                   <td>{u.email}</td>
                   <td><span style={{ textTransform: 'capitalize' }}>{u.role}</span></td>
                   <td>
+                    <button
+                      className={`btn btn-sm ${u.active !== false ? 'btn-success' : ''}`}
+                      onClick={() => handleActiveToggle(u.id, u.active !== false)}
+                      style={{
+                        fontSize: '0.7rem', padding: '0.15rem 0.5rem',
+                        background: u.active !== false ? 'var(--color-success)' : 'var(--color-error)',
+                        color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer',
+                      }}
+                    >
+                      {u.active !== false ? 'Active' : 'Inactive'}
+                    </button>
+                  </td>
+                  <td style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                     <select className="form-input" value={u.role} onChange={(e) => handleRoleChange(u.id, e.target.value)}
-                      style={{ width: '120px', padding: '0.2rem 0.5rem', fontSize: '0.75rem' }}>
+                      style={{ width: '100px', padding: '0.2rem 0.5rem', fontSize: '0.75rem' }}>
                       <option value="staff">Staff</option>
                       <option value="admin">Admin</option>
                     </select>
+                    <button
+                      onClick={() => handleDeleteUser(u.id, u.username)}
+                      style={{
+                        fontSize: '0.75rem', padding: '0.15rem 0.5rem',
+                        background: 'var(--color-error)', color: '#fff',
+                        border: 'none', borderRadius: '4px', cursor: 'pointer',
+                      }}
+                      title="Delete user"
+                    >
+                      Delete
+                    </button>
                   </td>
                 </tr>
               ))}

@@ -18,6 +18,7 @@ class AuthService {
   async login({ username, password }) {
     const user = await User.findOne({ where: { username } });
     if (!user) throw Object.assign(new Error('Invalid credentials'), { status: 401 });
+    if (!user.active) throw Object.assign(new Error('Account is deactivated'), { status: 401 });
     const valid = await user.validatePassword(password);
     if (!valid) throw Object.assign(new Error('Invalid credentials'), { status: 401 });
     const token = this.generateToken(user);

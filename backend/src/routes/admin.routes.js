@@ -30,6 +30,28 @@ router.put('/users/:id/role', authenticate, requireAdmin, async (req, res, next)
   } catch (error) { next(error); }
 });
 
+router.put('/users/:id/active', authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    const { active } = req.body;
+    if (typeof active !== 'boolean') return res.status(400).json({ error: 'Active must be true or false.' });
+    const user = await User.findByPk(req.params.id);
+    if (!user) return res.status(404).json({ error: 'User not found.' });
+    user.active = active;
+    await user.save();
+    res.json({ user: user.toSafeJSON() });
+  } catch (error) { next(error); }
+});
+
+router.delete('/users/:id', authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    const user = await User.findByPk(req.params.id);
+    if (!user) return res.status(404).json({ error: 'User not found.' });
+    if (user.id === req.user.id) return res.status(400).json({ error: 'Cannot delete yourself.' });
+    await user.destroy();
+    res.json({ message: 'User deleted.' });
+  } catch (error) { next(error); }
+});
+
 // Settings (admin only)
 router.get('/settings', authenticate, requireAdmin, adminController.getSettings);
 router.put('/settings', authenticate, requireAdmin, adminController.updateSettings);

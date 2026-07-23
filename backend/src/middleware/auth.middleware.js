@@ -12,6 +12,7 @@ const authenticate = async (req, res, next) => {
     const decoded = jwt.verify(token, config.jwt.secret);
     const user = await User.findByPk(decoded.id);
     if (!user) return res.status(401).json({ error: 'User not found' });
+    if (!user.active) return res.status(401).json({ error: 'Account is deactivated' });
     req.user = user;
     next();
   } catch (error) {

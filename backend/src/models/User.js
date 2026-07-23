@@ -8,6 +8,7 @@ const User = sequelize.define('User', {
   email: { type: DataTypes.STRING(255), allowNull: false, unique: true, validate: { isEmail: true } },
   password_hash: { type: DataTypes.STRING(255), allowNull: false },
   role: { type: DataTypes.STRING(20), allowNull: false, defaultValue: 'staff', validate: { isIn: [['staff', 'admin']] } },
+  active: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
 }, {
   tableName: 'users',
   timestamps: true,
