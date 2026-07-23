@@ -30,10 +30,13 @@ class UploadService {
       };
     }
 
+    const supersededFile = await this._findSupersededFile(filePath, fileType, contentHash);
+
     const fileRecord = await UploadedFile.create({
       filename, file_type: fileType, file_path: filePath,
       file_size: stats.size, content_hash: contentHash,
       status: 'parsing', uploaded_by: uploadedBy,
+      supersedes_id: supersededFile?.id || null,
     });
 
     try {
@@ -45,15 +48,26 @@ class UploadService {
       fileRecord.parsed_at = new Date();
       await fileRecord.save();
 
+      if (supersededFile) {
+        await this._markSupersededRecords(fileType, supersededFile.id, fileRecord.id);
+        await UploadedFile.update({ status: 'replaced' }, { where: { id: supersededFile.id } });
+      }
+
       try {
         const processedDir = fileType === '837' ? config.upload.processedDir837 : config.upload.processedDir835;
         if (processedDir) {
           const absProcessed = path.resolve(processedDir);
           fs.mkdirSync(absProcessed, { recursive: true });
-          const destPath = path.join(absProcessed, filename);
+          let destFilename = filename;
+          if (supersededFile) {
+            const ext = path.extname(filename);
+            const base = path.basename(filename, ext);
+            destFilename = `${base}.CORRECTED.${Date.now()}${ext}`;
+          }
+          const destPath = path.join(absProcessed, destFilename);
           fs.copyFileSync(filePath, destPath);
           fs.unlinkSync(filePath);
-          logger.info(`Moved ${filename} to ${absProcessed}`);
+          logger.info(`Moved ${filename} to ${absProcessed}${supersededFile ? ' (corrected)' : ''}`);
         }
       } catch (moveErr) {
         logger.warn(`Could not move ${filename} to processed dir: ${moveErr.message}`);
@@ -193,6 +207,54 @@ class UploadService {
     }
 
     return { count };
+  }
+
+  async _findSupersededFile(filePath, fileType, contentHash) {
+    const filename = path.basename(filePath);
+    const baseFilename = filename.replace(/^\d+-/, '');
+    return await UploadedFile.findOne({
+      where: {
+        filename: baseFilename,
+        file_type: fileType,
+        status: 'parsed',
+        content_hash: { [Op.ne]: contentHash },
+      },
+      order: [['uploaded_at', 'DESC']],
+    });
+  }
+
+  async _markSupersededRecords(fileType, supersededFileId, newFileId) {
+    if (fileType === '837') {
+      const newClaims = await Claim.findAll({ where: { file_id: newFileId } });
+      const claimIds = newClaims.map(c => c.claim_id).filter(Boolean);
+      if (claimIds.length === 0) return;
+      const oldClaims = await Claim.findAll({
+        where: { file_id: supersededFileId, claim_id: { [Op.in]: claimIds } },
+      });
+      for (const oldClaim of oldClaims) {
+        const matchingNew = newClaims.find(c => c.claim_id === oldClaim.claim_id);
+        if (matchingNew) {
+          oldClaim.superseded_by_id = matchingNew.id;
+          oldClaim.status = 'replaced';
+          await oldClaim.save();
+        }
+      }
+    } else if (fileType === '835') {
+      const newRemits = await Remittance.findAll({ where: { file_id: newFileId } });
+      const payerClaimIds = newRemits.map(r => r.payer_claim_id).filter(Boolean);
+      if (payerClaimIds.length === 0) return;
+      const oldRemits = await Remittance.findAll({
+        where: { file_id: supersededFileId, payer_claim_id: { [Op.in]: payerClaimIds } },
+      });
+      for (const oldRemit of oldRemits) {
+        const matchingNew = newRemits.find(r => r.payer_claim_id === oldRemit.payer_claim_id);
+        if (matchingNew) {
+          oldRemit.superseded_by_id = matchingNew.id;
+          oldRemit.status = 'replaced';
+          await oldRemit.save();
+        }
+      }
+    }
   }
 
   async _matchClaim(patientName, claimId) {
