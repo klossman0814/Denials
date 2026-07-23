@@ -55,10 +55,13 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="chart-grid">
+      <div className="chart-grid" style={{ gridTemplateColumns: '1fr' }}>
         <div className="chart-card">
           <TopDenialReasons reasons={denialReasons} />
         </div>
+      </div>
+
+      <div className="chart-grid" style={{ gridTemplateColumns: '1fr' }}>
         <div className="chart-card">
           <FinancialImpact summary={summary} />
         </div>
