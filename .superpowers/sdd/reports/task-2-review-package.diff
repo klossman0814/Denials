@@ -1,0 +1,27 @@
+﻿diff --git a/backend/tests/dashboard.test.js b/backend/tests/dashboard.test.js
+index 131752a..1d16431 100644
+--- a/backend/tests/dashboard.test.js
++++ b/backend/tests/dashboard.test.js
+@@ -16,11 +16,21 @@ describe('Dashboard API', () => {
+     expect(res.status).toBe(200);
+     expect(res.body.totalClaims).toBe(0);
+     expect(res.body.denialRate).toBe(0);
+   });
+ 
+   it('should return denial reasons list', async () => {
+     const res = await request(app).get('/api/dashboard/denial-reasons').set('Authorization', `Bearer ${token}`);
+     expect(res.status).toBe(200);
+     expect(res.body.reasons).toBeDefined();
+   });
++
++  it('should return paginated payer breakdown', async () => {
++    const res = await request(app)
++      .get('/api/dashboard/payer-breakdown?page=1&limit=10')
++      .set('Authorization', `Bearer ${token}`);
++    expect(res.status).toBe(200);
++    expect(res.body.breakdown).toBeDefined();
++    expect(Array.isArray(res.body.breakdown)).toBe(true);
++    expect(typeof res.body.total).toBe('number');
++  });
+ });
+\ No newline at end of file

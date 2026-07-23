@@ -1,0 +1,14 @@
+﻿diff --git a/frontend/src/services/dashboard.api.js b/frontend/src/services/dashboard.api.js
+index f82b4ee..c3c894d 100644
+--- a/frontend/src/services/dashboard.api.js
++++ b/frontend/src/services/dashboard.api.js
+@@ -1,8 +1,8 @@
+ import api from './api';
+ export const dashboardApi = {
+   summary: () => api.get('/dashboard/summary'),
+   denialReasons: (limit = 10) => api.get(`/dashboard/denial-reasons?limit=${limit}`),
+   trends: (days = 30) => api.get(`/dashboard/trends?days=${days}`),
+-  payerBreakdown: () => api.get('/dashboard/payer-breakdown'),
++  payerBreakdown: (page = 1, limit = 10) => api.get(`/dashboard/payer-breakdown?page=${page}&limit=${limit}`),
+   aging: () => api.get('/dashboard/aging'),
+ };

@@ -1,0 +1,152 @@
+﻿diff --git a/frontend/src/components/Charts/PayerBreakdown.jsx b/frontend/src/components/Charts/PayerBreakdown.jsx
+index a807756..4cbb8ce 100644
+--- a/frontend/src/components/Charts/PayerBreakdown.jsx
++++ b/frontend/src/components/Charts/PayerBreakdown.jsx
+@@ -1,20 +1,39 @@
+ import React from 'react';
+ 
+ const fmt = (v) => v?.toLocaleString() ?? 'ΓÇö';
+ const currency = (v) => v != null ? `$${parseFloat(v).toLocaleString()}` : 'ΓÇö';
+ 
+-export default function PayerBreakdown({ breakdown }) {
++export default function PayerBreakdown({ breakdown, page, totalPages, onPageChange }) {
+   if (!breakdown?.length) return <div className="card" style={{ textAlign: 'center', padding: '3rem' }}>No payer data yet</div>;
+ 
+   const total = breakdown.reduce((s, p) => s + p.count, 0);
+ 
++  const getPageNumbers = () => {
++    const pages = [];
++    const maxVisible = 5;
++    if (totalPages <= maxVisible + 2) {
++      for (let i = 1; i <= totalPages; i++) pages.push(i);
++    } else {
++      pages.push(1);
++      let start = Math.max(2, page - 1);
++      let end = Math.min(totalPages - 1, page + 1);
++      if (page <= 3) { start = 2; end = Math.min(maxVisible, totalPages - 1); }
++      if (page >= totalPages - 2) { start = Math.max(2, totalPages - maxVisible + 1); end = totalPages - 1; }
++      if (start > 2) pages.push('...');
++      for (let i = start; i <= end; i++) pages.push(i);
++      if (end < totalPages - 1) pages.push('...');
++      pages.push(totalPages);
++    }
++    return pages;
++  };
++
+   return (
+     <div className="card">
+       <div className="card-header">Claims by Payer</div>
+       <div style={{ overflowX: 'auto' }}>
+         <table className="table">
+           <thead>
+             <tr>
+               <th>Payer</th>
+               <th style={{ textAlign: 'right' }}>Claims</th>
+               <th style={{ textAlign: 'right' }}>% of Total</th>
+@@ -26,13 +45,51 @@ export default function PayerBreakdown({ breakdown }) {
+               <tr key={i}>
+                 <td>{p.payer}</td>
+                 <td style={{ textAlign: 'right' }}>{fmt(p.count)}</td>
+                 <td style={{ textAlign: 'right' }}>{total > 0 ? `${(p.count / total * 100).toFixed(1)}%` : 'ΓÇö'}</td>
+                 <td style={{ textAlign: 'right' }}>{currency(p.totalCharge)}</td>
+               </tr>
+             ))}
+           </tbody>
+         </table>
+       </div>
++      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.25rem', marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border-color)' }}>
++        <button
++          className="btn btn-secondary"
++          style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
++          disabled={page <= 1}
++          onClick={() => onPageChange(page - 1)}
++        >
++          ┬½ Prev
++        </button>
++        {getPageNumbers().map((p, i) =>
++          p === '...' ? (
++            <span key={`ellipsis-${i}`} style={{ padding: '0 0.25rem', color: 'var(--text-secondary)', fontSize: '0.75rem' }}>ΓÇª</span>
++          ) : (
++            <button
++              key={p}
++              className="btn"
++              style={{
++                padding: '0.25rem 0.5rem', fontSize: '0.75rem', minWidth: '28px',
++                background: p === page ? 'var(--color-primary)' : 'var(--bg-card)',
++                color: p === page ? '#fff' : 'var(--text-primary)',
++                border: '1px solid var(--border-color)',
++                ...(p === page ? { borderColor: 'var(--color-primary)' } : {}),
++              }}
++              onClick={() => onPageChange(p)}
++            >
++              {p}
++            </button>
++          )
++        )}
++        <button
++          className="btn btn-secondary"
++          style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
++          disabled={page >= totalPages}
++          onClick={() => onPageChange(page + 1)}
++        >
++          Next ┬╗
++        </button>
++      </div>
+     </div>
+   );
+ }
+diff --git a/frontend/src/pages/Dashboard.jsx b/frontend/src/pages/Dashboard.jsx
+index 2ab90d4..f2711cd 100644
+--- a/frontend/src/pages/Dashboard.jsx
++++ b/frontend/src/pages/Dashboard.jsx
+@@ -5,21 +5,21 @@ import ClaimVolumeChart from '../components/Charts/ClaimVolumeChart';
+ import DenialRateChart from '../components/Charts/DenialRateChart';
+ import TopDenialReasons from '../components/Charts/TopDenialReasons';
+ import FinancialImpact from '../components/Charts/FinancialImpact';
+ import PayerBreakdown from '../components/Charts/PayerBreakdown';
+ 
+ const fmt = (v) => v?.toLocaleString() ?? 'ΓÇö';
+ const currency = (v) => v != null ? `$${v.toLocaleString()}` : 'ΓÇö';
+ const pct = (v) => v != null ? `${v.toFixed(1)}%` : 'ΓÇö';
+ 
+ export default function Dashboard() {
+-  const { summary, denialReasons, trends, payerBreakdown, aging, loading, error } = useDashboard();
++  const { summary, denialReasons, trends, payerBreakdown, payerPage, payerTotalPages, setPayerPage, aging, loading, error } = useDashboard();
+ 
+   if (loading) return (
+     <div className="page" style={{ display: 'flex', justifyContent: 'center', paddingTop: '4rem' }}>
+       <div className="spinner" />
+     </div>
+   );
+   if (error) return (
+     <div className="card" style={{ color: 'var(--color-error)', textAlign: 'center', padding: '3rem' }}>
+       Failed to load dashboard: {error}
+     </div>
+@@ -59,21 +59,26 @@ export default function Dashboard() {
+         <div className="chart-card">
+           <TopDenialReasons reasons={denialReasons} />
+         </div>
+         <div className="chart-card">
+           <FinancialImpact summary={summary} />
+         </div>
+       </div>
+ 
+       <div className="chart-grid">
+         <div className="chart-card">
+-          <PayerBreakdown breakdown={payerBreakdown} />
++          <PayerBreakdown
++            breakdown={payerBreakdown}
++            page={payerPage}
++            totalPages={payerTotalPages}
++            onPageChange={setPayerPage}
++          />
+         </div>
+         {aging?.length > 0 && (
+           <div className="chart-card">
+             <div className="card">
+               <div className="card-header">Aging Buckets</div>
+               <table className="table">
+                 <thead><tr><th>Bucket</th><th>Claims</th></tr></thead>
+                 <tbody>
+                   {aging.map((a, i) => (
+                     <tr key={i}><td>{a.bucket}</td><td>{fmt(a.count)}</td></tr>
