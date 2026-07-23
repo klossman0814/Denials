@@ -7,7 +7,7 @@ import TopDenialReasons from '../components/Charts/TopDenialReasons';
 import FinancialImpact from '../components/Charts/FinancialImpact';
 import PayerBreakdown from '../components/Charts/PayerBreakdown';
 
-const fmt = (v) => v?.toLocaleString() ?? '—';
+const fmt = (v) => v != null ? Number(v).toLocaleString() : '—';
 const currency = (v) => v != null ? `$${v.toLocaleString()}` : '—';
 const pct = (v) => v != null ? `${v.toFixed(1)}%` : '—';
 
