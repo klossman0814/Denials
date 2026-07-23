@@ -104,10 +104,10 @@ class DashboardService {
       attributes: [
         [
           literal(`CASE
-            WHEN "created_at" >= NOW() - INTERVAL '30 days' THEN '0-30 days'
-            WHEN "created_at" >= NOW() - INTERVAL '60 days' THEN '31-60 days'
-            WHEN "created_at" >= NOW() - INTERVAL '90 days' THEN '61-90 days'
-            WHEN "created_at" >= NOW() - INTERVAL '120 days' THEN '91-120 days'
+            WHEN COALESCE("service_date_start", "service_date_end", NULLIF("bht_date", '')::date, "created_at"::date) >= CURRENT_DATE - INTERVAL '30 days' THEN '0-30 days'
+            WHEN COALESCE("service_date_start", "service_date_end", NULLIF("bht_date", '')::date, "created_at"::date) >= CURRENT_DATE - INTERVAL '60 days' THEN '31-60 days'
+            WHEN COALESCE("service_date_start", "service_date_end", NULLIF("bht_date", '')::date, "created_at"::date) >= CURRENT_DATE - INTERVAL '90 days' THEN '61-90 days'
+            WHEN COALESCE("service_date_start", "service_date_end", NULLIF("bht_date", '')::date, "created_at"::date) >= CURRENT_DATE - INTERVAL '120 days' THEN '91-120 days'
             ELSE '120+ days'
           END`),
           'bucket',
@@ -116,7 +116,7 @@ class DashboardService {
         [fn('COALESCE', fn('SUM', col('total_charge')), 0), 'total_charge'],
       ],
       group: [literal('bucket')],
-      order: [[literal('MIN("created_at")'), 'ASC']],
+      order: [[literal('MIN(COALESCE("service_date_start", "service_date_end", NULLIF("bht_date", \'\')::date, "created_at"::date))'), 'ASC']],
       raw: true,
     });
 
