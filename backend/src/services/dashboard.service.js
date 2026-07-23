@@ -73,18 +73,27 @@ class DashboardService {
     return result;
   }
 
-  async getPayerBreakdown() {
-    const cached = await cache.get('dashboard:payerBreakdown');
+  async getPayerBreakdown(limit = 10, offset = 0) {
+    const cacheKey = `dashboard:payerBreakdown:${limit}:${offset}`;
+    const cached = await cache.get(cacheKey);
     if (cached) return cached;
     const payers = await Claim.findAll({
       attributes: ['payer_name', [fn('COUNT', col('id')), 'count'], [fn('SUM', col('total_charge')), 'total_charge']],
-      group: ['payer_name'], order: [[literal('"count"'), 'DESC']], raw: true,
+      group: ['payer_name'], order: [[literal('"count"'), 'DESC']],
+      limit, offset, raw: true,
     });
-    const result = payers.map(p => ({
+    const breakdown = payers.map(p => ({
       payer: p.payer_name || 'Unknown', count: parseInt(p.count),
       totalCharge: parseFloat(p.total_charge || 0).toFixed(2),
     }));
-    await cache.set('dashboard:payerBreakdown', result);
+    // Total distinct payers for pagination
+    const totalResult = await Claim.findAll({
+      attributes: [[fn('COUNT', fn('DISTINCT', col('payer_name'))), 'total']],
+      raw: true,
+    });
+    const total = parseInt(totalResult[0]?.total || 0);
+    const result = { breakdown, total };
+    await cache.set(cacheKey, result);
     return result;
   }
 

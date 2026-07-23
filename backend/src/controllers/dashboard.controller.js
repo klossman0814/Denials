@@ -16,8 +16,13 @@ exports.trends = async (req, res, next) => {
 };
 
 exports.payerBreakdown = async (req, res, next) => {
-  try { res.json({ breakdown: await dashboardService.getPayerBreakdown() }); }
-  catch (error) { next(error); }
+  try {
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 10));
+    const offset = (page - 1) * limit;
+    const result = await dashboardService.getPayerBreakdown(limit, offset);
+    res.json(result);
+  } catch (error) { next(error); }
 };
 
 exports.aging = async (req, res, next) => {
