@@ -13,6 +13,7 @@ const {
 } = require('../models');
 const { parse837 } = require('../parsers/edi837.parser');
 const { parse835 } = require('../parsers/edi835.parser');
+const { parseEDIDate } = require('../parsers/edi.utils');
 const logger = require('../utils/logger');
 const cache = require('../utils/queryCache');
 
@@ -118,6 +119,8 @@ class UploadService {
         ...claimFields,
         file_id: fileId,
         status: 'submitted',
+        // Pass BHT date (837 submission date) to each claim
+        bht_date: metadata.bht_date ? (parseEDIDate(metadata.bht_date) || metadata.bht_date) : claimFields.bht_date || '',
         // Flatten billing provider address
         provider_address1: provider_address?.address1 || '',
         provider_address2: provider_address?.address2 || '',
@@ -388,10 +391,24 @@ class UploadService {
         });
       }
 
-      // Update matched claim status
+      // Update matched claim status and set resolved_at / days_to_resolve
       if (match) {
         const newStatus = remitFields.status === 'paid' ? 'paid' : remitFields.status === 'partial' ? 'partial' : 'denied';
-        await match.update({ status: newStatus });
+        const updateFields = { status: newStatus };
+        // Only set resolved_at once — don't overwrite if already set
+        if (!match.resolved_at && newStatus !== 'submitted') {
+          updateFields.resolved_at = new Date();
+        }
+        // Calculate days_to_resolve from 835 adjudication date - 837 submission date
+        if (match.days_to_resolve == null) {
+          const adjDate = remitFields.remittance_date || remittanceFile.payment_date;
+          const subDate = match.bht_date || match.service_date_end || match.service_date_start || (match.created_at ? match.created_at.toISOString().split('T')[0] : null);
+          if (adjDate && subDate) {
+            const diffMs = new Date(adjDate).getTime() - new Date(subDate).getTime();
+            updateFields.days_to_resolve = Math.round(diffMs / (1000 * 60 * 60 * 24));
+          }
+        }
+        await match.update(updateFields);
       }
     }
 

@@ -19,9 +19,9 @@ class DashboardService {
     const deniedAmount = await Claim.sum('total_charge', { where: { status: 'denied' } }) || 0;
     const avgResolutionDays = await Claim.findOne({
       attributes: [
-        [fn('AVG', literal('EXTRACT(EPOCH FROM ("updated_at" - "created_at")) / 86400')), 'avg_days'],
+        [fn('AVG', col('days_to_resolve')), 'avg_days'],
       ],
-      where: { status: { [Op.in]: ['paid', 'denied', 'partial'] } },
+      where: { status: { [Op.in]: ['paid', 'denied', 'partial'] }, days_to_resolve: { [Op.gte]: 0 } },
       raw: true,
     });
     const result = {
@@ -29,7 +29,7 @@ class DashboardService {
       totalPayments: parseFloat(totalPayments.toFixed(2)),
       totalAdjustments: parseFloat(totalAdjustments.toFixed(2)), denialRate,
       deniedCount, deniedAmount: parseFloat(deniedAmount.toFixed(2)),
-      avgResolutionDays: avgResolutionDays?.avg_days ? parseFloat(parseFloat(avgResolutionDays.avg_days).toFixed(1)) : 0,
+      avgResolutionDays: avgResolutionDays?.avg_days ? parseFloat(parseFloat(avgResolutionDays.avg_days).toFixed(2)) : 0,
       statusDistribution: statusDistribution.map(s => ({ status: s.status, count: parseInt(s.count) })),
     };
     await cache.set('dashboard:summary', result);

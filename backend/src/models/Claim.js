@@ -70,6 +70,8 @@ const Claim = sequelize.define('Claim', {
   // Status
   status: { type: DataTypes.STRING(20), defaultValue: 'submitted', validate: { isIn: [['submitted', 'paid', 'denied', 'partial', 'replaced']] } },
   superseded_by_id: { type: DataTypes.UUID, allowNull: true },
+  resolved_at: { type: DataTypes.DATE },
+  days_to_resolve: { type: DataTypes.INTEGER },
 }, {
   tableName: 'claims',
   timestamps: true,
