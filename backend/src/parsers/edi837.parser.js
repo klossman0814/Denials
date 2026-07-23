@@ -49,7 +49,13 @@ function parse837(content) {
       currentClaim.provider_name = currentClaim.provider_name || bp.name || '';
       currentClaim.provider_npi = currentClaim.provider_npi || bp.npi || '';
       currentClaim.provider_tax_id = currentClaim.provider_tax_id || bp.tax_id || '';
-      currentClaim.provider_address = currentClaim.provider_address || bp.address || { address1: '', address2: '', city: '', state: '', zip: '' };
+      currentClaim.provider_address = {
+        address1: currentClaim.provider_address?.address1 || bp.address1 || '',
+        address2: currentClaim.provider_address?.address2 || bp.address2 || '',
+        city: currentClaim.provider_address?.city || bp.city || '',
+        state: currentClaim.provider_address?.state || bp.state || '',
+        zip: currentClaim.provider_address?.zip || bp.zip || '',
+      };
       currentClaim.payer_name = currentClaim.payer_name || '';
       currentClaim.payer_id = currentClaim.payer_id || '';
       claims.push(currentClaim);
@@ -544,6 +550,7 @@ function parse837(content) {
         if (!currentClaim) break;
         currentClaim.contract_type = (elements[1] || '').trim();
         currentClaim.contract_amount = parseEDIAmount(elements[2]);
+        currentClaim.contract_percentage = parseEDIAmount(elements[3]);
         break;
       }
 

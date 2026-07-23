@@ -3,7 +3,14 @@ const fs = require('fs');
 const path = require('path');
 const { Op } = require('sequelize');
 const config = require('../config/env');
-const { UploadedFile, Claim, ClaimLine, Remittance, RemittanceFile, RemittanceLine, DenialReason } = require('../models');
+const {
+  UploadedFile, Claim, ClaimLine, Remittance, RemittanceFile,
+  RemittanceLine, DenialReason,
+  ClaimDiagnosis, ClaimReference, ClaimAmount, ClaimCondition,
+  ClaimReportType, ClaimFileInfo, ClaimToothInfo,
+  RemittanceReference, RemittanceAmount,
+  RemittanceInpatient, RemittanceOutpatient, ProviderAdjustment,
+} = require('../models');
 const { parse837 } = require('../parsers/edi837.parser');
 const { parse835 } = require('../parsers/edi835.parser');
 const logger = require('../utils/logger');
@@ -91,15 +98,81 @@ class UploadService {
   }
 
   async _process837(content, fileId) {
-    const { claims } = parse837(content);
+    const { metadata, claims } = parse837(content);
     let count = 0;
 
     // Batch: collect all claim records and their lines
     const claimRecords = [];
     const allLines = [];
-    for (const { lines, ...claimFields } of claims) {
-      claimRecords.push({ ...claimFields, file_id: fileId, status: 'submitted' });
+    const allDiagnoses = [];
+    const allRefs = [];
+    const allAmts = [];
+    const allConditions = [];
+    const allReportTypes = [];
+    const allFileInfos = [];
+
+    for (const parsedClaim of claims) {
+      const { lines, provider_address, provider_contact, diagnosis_codes, refs, amts, condition_codes, report_types, file_info, denial_reasons, ...claimFields } = parsedClaim;
+
+      const flatClaim = {
+        ...claimFields,
+        file_id: fileId,
+        status: 'submitted',
+        // Flatten billing provider address
+        provider_address1: provider_address?.address1 || '',
+        provider_address2: provider_address?.address2 || '',
+        provider_city: provider_address?.city || '',
+        provider_state: provider_address?.state || '',
+        provider_zip: provider_address?.zip || '',
+        // Flatten billing provider contact
+        provider_contact_name: provider_contact?.name || '',
+        provider_contact_phone: provider_contact?.phone || '',
+      };
+      claimRecords.push(flatClaim);
       allLines.push(lines || []);
+
+      // Save diagnosis codes
+      const diagIdx = allDiagnoses.length;
+      if (diagnosis_codes && diagnosis_codes.length > 0) {
+        for (let d = 0; d < diagnosis_codes.length; d++) {
+          allDiagnoses.push({ ...diagnosis_codes[d], sequence: d + 1 });
+        }
+      }
+
+      // Save references
+      if (refs && refs.length > 0) {
+        for (const ref of refs) {
+          allRefs.push({ ...ref });
+        }
+      }
+
+      // Save amounts
+      if (amts && amts.length > 0) {
+        for (const amt of amts) {
+          allAmts.push({ ...amt });
+        }
+      }
+
+      // Save conditions
+      if (condition_codes && condition_codes.length > 0) {
+        for (const cond of condition_codes) {
+          allConditions.push({ ...cond });
+        }
+      }
+
+      // Save report types
+      if (report_types && report_types.length > 0) {
+        for (const rt of report_types) {
+          allReportTypes.push({ ...rt });
+        }
+      }
+
+      // Save file infos
+      if (file_info && file_info.length > 0) {
+        for (const fi of file_info) {
+          allFileInfos.push({ ...fi });
+        }
+      }
     }
 
     if (claimRecords.length > 0) {
@@ -108,34 +181,186 @@ class UploadService {
 
       // Create lines for each claim
       const lineRecords = [];
+      const toothInfoRecords = [];
       for (let i = 0; i < createdClaims.length; i++) {
         for (const line of allLines[i]) {
-          lineRecords.push({ ...line, claim_id: createdClaims[i].id });
+          const { refs: lineRefs, amts: lineAmts, tooth_info, ...lineFields } = line;
+          lineRecords.push({
+            ...lineFields,
+            claim_id: createdClaims[i].id,
+            diagnosis_code_pointers: line.diagnosis_code_pointers
+              ? JSON.stringify(line.diagnosis_code_pointers)
+              : null,
+          });
+          // Save tooth info if present
+          if (line.tooth_code || line.oral_cavity_code || line.tooth_surface) {
+            // tooth info is stored inline on the line itself for simplicity
+          }
+        }
+
+        // Link child records to this claim
+        const diagCount = (allLines[i] || []).length > 0 ? 1 : 0;
+        // Use a claim index offset to figure out which diagnoses belong to which claim
+      }
+
+      if (lineRecords.length > 0) {
+        const createdLines = await ClaimLine.bulkCreate(lineRecords, { returning: true });
+        count += lineRecords.length;
+
+        // Save tooth info for lines that have it
+        const toothRecords = [];
+        for (let i = 0; i < createdLines.length; i++) {
+          const line = allLines.flat()[i];
+          if (line && (line.tooth_code || line.oral_cavity_code || line.tooth_surface)) {
+            toothRecords.push({
+              claim_line_id: createdLines[i].id,
+              oral_cavity_code: line.oral_cavity_code || '',
+              tooth_code: line.tooth_code || '',
+              tooth_surface: line.tooth_surface || '',
+            });
+          }
+        }
+        if (toothRecords.length > 0) {
+          await ClaimToothInfo.bulkCreate(toothRecords);
+          count += toothRecords.length;
         }
       }
-      if (lineRecords.length > 0) {
-        await ClaimLine.bulkCreate(lineRecords);
-        count += lineRecords.length;
+
+      // Save all child records with claim FK
+      // Map child data to claim indices
+      let claimDiagOffset = 0;
+      let claimRefOffset = 0;
+      let claimAmtOffset = 0;
+      let claimCondOffset = 0;
+      let claimRtOffset = 0;
+      let claimFiOffset = 0;
+
+      const diagRecords = [];
+      const refRecords = [];
+      const amtRecords = [];
+      const condRecords = [];
+      const rtRecords = [];
+      const fiRecords = [];
+
+      for (let i = 0; i < createdClaims.length; i++) {
+        const claimId = createdClaims[i].id;
+        // Count how many child records belong to this claim by matching on the original claim
+        const parsedClaim = claims[i];
+
+        if (parsedClaim.diagnosis_codes) {
+          for (let d = 0; d < parsedClaim.diagnosis_codes.length; d++) {
+            diagRecords.push({ ...parsedClaim.diagnosis_codes[d], claim_id: claimId, sequence: d + 1 });
+          }
+        }
+        if (parsedClaim.refs) {
+          for (const ref of parsedClaim.refs) {
+            refRecords.push({ ...ref, claim_id: claimId });
+          }
+        }
+        if (parsedClaim.amts) {
+          for (const amt of parsedClaim.amts) {
+            amtRecords.push({ ...amt, claim_id: claimId });
+          }
+        }
+        if (parsedClaim.condition_codes) {
+          for (const cond of parsedClaim.condition_codes) {
+            condRecords.push({ ...cond, claim_id: claimId });
+          }
+        }
+        if (parsedClaim.report_types) {
+          for (const rt of parsedClaim.report_types) {
+            rtRecords.push({ ...rt, claim_id: claimId });
+          }
+        }
+        if (parsedClaim.file_info) {
+          for (const fi of parsedClaim.file_info) {
+            fiRecords.push({ ...fi, claim_id: claimId });
+          }
+        }
       }
+
+      if (diagRecords.length > 0) { await ClaimDiagnosis.bulkCreate(diagRecords); count += diagRecords.length; }
+      if (refRecords.length > 0) { await ClaimReference.bulkCreate(refRecords); count += refRecords.length; }
+      if (amtRecords.length > 0) { await ClaimAmount.bulkCreate(amtRecords); count += amtRecords.length; }
+      if (condRecords.length > 0) { await ClaimCondition.bulkCreate(condRecords); count += condRecords.length; }
+      if (rtRecords.length > 0) { await ClaimReportType.bulkCreate(rtRecords); count += rtRecords.length; }
+      if (fiRecords.length > 0) { await ClaimFileInfo.bulkCreate(fiRecords); count += fiRecords.length; }
     }
 
     return { count };
   }
 
   async _process835(content, fileId) {
-    const { file: fileMeta, remittances } = parse835(content);
+    const { metadata, file: fileMeta, remittances, provider_adjustments } = parse835(content);
     let count = 0;
 
-    const remittanceFile = await RemittanceFile.create({ ...fileMeta, file_id: fileId });
+    // Flatten nested payer/payee objects and include envelope metadata
+    const flatFile = {
+      total_payment: fileMeta.total_payment,
+      payment_method: fileMeta.payment_method,
+      payment_date: fileMeta.payment_date,
+      trace_number: fileMeta.trace_number,
+      sender_bank_id: fileMeta.sender_bank_id,
+      sender_account: fileMeta.sender_account,
+      payer_name: fileMeta.payer_name,
+      payer_id_code: fileMeta.payer_id_code,
+      payee_name: fileMeta.payee_name,
+      payee_id_code: fileMeta.payee_id_code,
+      payee_tax_id: fileMeta.payee_tax_id,
+      credit_debit_flag: fileMeta.credit_debit_flag || '',
+      // Flatten payer address/contact
+      payer_address1: fileMeta.payer?.address?.address1 || '',
+      payer_address2: fileMeta.payer?.address?.address2 || '',
+      payer_city: fileMeta.payer?.address?.city || '',
+      payer_state: fileMeta.payer?.address?.state || '',
+      payer_zip: fileMeta.payer?.address?.zip || '',
+      payer_contact_name: fileMeta.payer?.contact?.name || '',
+      payer_contact_phone: fileMeta.payer?.contact?.phone || '',
+      payer_contact_email: fileMeta.payer?.contact?.email || '',
+      // Flatten payee address/contact
+      payee_address1: fileMeta.payee?.address?.address1 || '',
+      payee_address2: fileMeta.payee?.address?.address2 || '',
+      payee_city: fileMeta.payee?.address?.city || '',
+      payee_state: fileMeta.payee?.address?.state || '',
+      payee_zip: fileMeta.payee?.address?.zip || '',
+      payee_contact_name: fileMeta.payee?.contact?.name || '',
+      payee_contact_phone: fileMeta.payee?.contact?.phone || '',
+      payee_contact_email: fileMeta.payee?.contact?.email || '',
+      // Envelope metadata
+      sender_id: metadata.sender_id || '',
+      receiver_id: metadata.receiver_id || '',
+      isa_date: metadata.date || '',
+      isa_time: metadata.time || '',
+      isa_control_number: metadata.control_number || '',
+      isa_standards_id: metadata.standards_id || '',
+      gs_sender: metadata.gs_sender || '',
+      gs_receiver: metadata.gs_receiver || '',
+      gs_date: metadata.gs_date || '',
+      gs_time: metadata.gs_time || '',
+      gs_control_number: metadata.gs_control_number || '',
+      gs_version: metadata.gs_version || '',
+      st_transaction_id: metadata.st_transaction_id || '',
+      st_control_number: metadata.st_control_number || '',
+      file_id: fileId,
+    };
+
+    const remittanceFile = await RemittanceFile.create(flatFile);
     count++;
 
     // Collect batch data
     const remittanceRecords = [];
-    const claimLevelDenials = [];  // { dr, remitIdx, claimId }
-    const lineDenialBatches = [];  // { denials: [], remitIdx }
+    const claimLevelDenials = [];
+    const lineDenialBatches = [];
 
     for (const remittance of remittances) {
-      const { denial_reasons, service_lines, ...remitFields } = remittance;
+      const {
+        denial_reasons, service_lines,
+        refs, amts,
+        inpatient_info, outpatient_info,
+        patient, subscriber, rendering_provider, billing_provider, service_dates,
+        ...remitFields
+      } = remittance;
+
       const match = await this._matchClaim(remitFields.patient_name, remitFields.payer_claim_id);
 
       const remitData = {
@@ -147,12 +372,14 @@ class UploadService {
       remittanceRecords.push(remitData);
       const currentIdx = remittanceRecords.length - 1;
 
+      // Store denial reasons
       for (const dr of (denial_reasons || [])) {
         claimLevelDenials.push({ dr, remitIdx: currentIdx, claimId: match?.id || null });
       }
 
+      // Store service lines
       for (const line of (service_lines || [])) {
-        const { denial_reasons: lineDenials, ...lineFields } = line;
+        const { denial_reasons: lineDenials, quantity_adjustments, ...lineFields } = line;
         lineDenialBatches.push({
           lineData: lineFields,
           denials: lineDenials || [],
@@ -161,6 +388,7 @@ class UploadService {
         });
       }
 
+      // Update matched claim status
       if (match) {
         const newStatus = remitFields.status === 'paid' ? 'paid' : remitFields.status === 'partial' ? 'partial' : 'denied';
         await match.update({ status: newStatus });
@@ -172,7 +400,7 @@ class UploadService {
       const createdRemits = await Remittance.bulkCreate(remittanceRecords, { returning: true });
       count += createdRemits.length;
 
-      // Bulk insert claim-level denial reasons
+      // Claim-level denial reasons
       const drRecords = [];
       for (const item of claimLevelDenials) {
         drRecords.push({
@@ -186,8 +414,44 @@ class UploadService {
         count += drRecords.length;
       }
 
-      // Service lines still use individual create (need returned ID for FK),
-      // but line-level denial reasons are batched
+      // Save remittance-level child records
+      const refRecords = [];
+      const amtRecords = [];
+      const inpatientRecords = [];
+      const outpatientRecords = [];
+
+      for (let i = 0; i < createdRemits.length; i++) {
+        const remitId = createdRemits[i].id;
+        const parsedRemit = remittances[i];
+
+        if (parsedRemit.refs) {
+          for (const ref of parsedRemit.refs) {
+            refRecords.push({ ...ref, remittance_id: remitId });
+          }
+        }
+        if (parsedRemit.amts) {
+          for (const amt of parsedRemit.amts) {
+            amtRecords.push({ ...amt, remittance_id: remitId });
+          }
+        }
+        if (parsedRemit.inpatient_info) {
+          inpatientRecords.push({ ...parsedRemit.inpatient_info, remittance_id: remitId });
+        }
+        if (parsedRemit.outpatient_info) {
+          outpatientRecords.push({
+            ...parsedRemit.outpatient_info,
+            remittance_id: remitId,
+            remark_codes: (parsedRemit.outpatient_info.remark_codes || []).join(','),
+          });
+        }
+      }
+
+      if (refRecords.length > 0) { await RemittanceReference.bulkCreate(refRecords); count += refRecords.length; }
+      if (amtRecords.length > 0) { await RemittanceAmount.bulkCreate(amtRecords); count += amtRecords.length; }
+      if (inpatientRecords.length > 0) { await RemittanceInpatient.bulkCreate(inpatientRecords); count += inpatientRecords.length; }
+      if (outpatientRecords.length > 0) { await RemittanceOutpatient.bulkCreate(outpatientRecords); count += outpatientRecords.length; }
+
+      // Service lines (individual create for returned ID)
       const lineDenialRecords = [];
       for (const item of lineDenialBatches) {
         const lineRecord = await RemittanceLine.create({
@@ -208,6 +472,16 @@ class UploadService {
         await DenialReason.bulkCreate(lineDenialRecords);
         count += lineDenialRecords.length;
       }
+    }
+
+    // Save provider-level adjustments (PLB segment)
+    if (provider_adjustments && provider_adjustments.length > 0) {
+      const paRecords = provider_adjustments.map(pa => ({
+        ...pa,
+        remittance_file_id: remittanceFile.id,
+      }));
+      await ProviderAdjustment.bulkCreate(paRecords);
+      count += paRecords.length;
     }
 
     return { count };

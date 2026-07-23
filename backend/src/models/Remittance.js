@@ -14,14 +14,21 @@ const Remittance = sequelize.define('Remittance', {
   patient_first_name: { type: DataTypes.STRING(100) },
   patient_last_name: { type: DataTypes.STRING(100) },
   patient_member_id: { type: DataTypes.STRING(100) },
+  patient_dob: { type: DataTypes.DATEONLY },
+  patient_gender: { type: DataTypes.STRING(10) },
   subscriber_id: { type: DataTypes.STRING(100) },
+  subscriber_first_name: { type: DataTypes.STRING(100) },
+  subscriber_last_name: { type: DataTypes.STRING(100) },
   rendering_provider_name: { type: DataTypes.STRING(200) },
   rendering_provider_npi: { type: DataTypes.STRING(20) },
   billing_provider_name: { type: DataTypes.STRING(200) },
   billing_provider_npi: { type: DataTypes.STRING(20) },
   service_date_from: { type: DataTypes.DATEONLY },
   service_date_to: { type: DataTypes.DATEONLY },
+  claim_statement_from: { type: DataTypes.DATEONLY },
+  claim_statement_to: { type: DataTypes.DATEONLY },
   claim_status_code: { type: DataTypes.STRING(5) },
+  claim_filing_type: { type: DataTypes.STRING(5) },
   remittance_file_id: { type: DataTypes.UUID },
 }, {
   tableName: 'remittances',
@@ -45,6 +52,8 @@ Remittance.associate = (models) => {
   Remittance.belongsTo(models.Remittance, { as: 'SupersededBy', foreignKey: 'superseded_by_id' });
   Remittance.hasMany(models.DenialReason, { foreignKey: 'remittance_id' });
   Remittance.hasMany(models.RemittanceLine, { foreignKey: 'remittance_id' });
+  Remittance.hasMany(models.RemittanceReference, { foreignKey: 'remittance_id' });
+  Remittance.hasMany(models.RemittanceAmount, { foreignKey: 'remittance_id' });
 };
 
 module.exports = Remittance;
