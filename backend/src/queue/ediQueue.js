@@ -7,8 +7,8 @@ try {
   const Queue = require('bull');
   ediQueue = new Queue('edi-processing', config.redis.url, {
     defaultJobOptions: {
-      attempts: 3,
-      backoff: { type: 'exponential', delay: 5000 },
+      attempts: 5,
+      backoff: { type: 'exponential', delay: 30000 },
       removeOnComplete: 100,
       removeOnFail: 50,
     },

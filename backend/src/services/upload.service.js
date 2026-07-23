@@ -9,6 +9,10 @@ const { parse835 } = require('../parsers/edi835.parser');
 const logger = require('../utils/logger');
 const cache = require('../utils/queryCache');
 
+class RetryableError extends Error {
+  constructor(message) { super(message); this.retryable = true; }
+}
+
 class UploadService {
   async processFile(filePath, fileType, uploadedBy = null) {
     const filename = path.basename(filePath);
@@ -255,6 +259,26 @@ class UploadService {
         }
       }
     }
+  }
+
+  async _rematchUnlinkedRemittances() {
+    const unlinked = await Remittance.findAll({
+      where: { claim_id: null },
+      include: [{ model: UploadedFile, where: { file_type: '835' }, attributes: [] }],
+    });
+    let matched = 0;
+    for (const remit of unlinked) {
+      const claim = await this._matchClaim(remit.patient_name, remit.payer_claim_id);
+      if (claim) {
+        remit.claim_id = claim.id;
+        await remit.save();
+        matched++;
+      }
+    }
+    if (matched > 0) {
+      logger.info(`Rematch job: linked ${matched}/${unlinked.length} previously unlinked remittances`);
+    }
+    return matched;
   }
 
   async _matchClaim(patientName, claimId) {
