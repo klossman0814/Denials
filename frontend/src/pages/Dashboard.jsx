@@ -12,7 +12,7 @@ const currency = (v) => v != null ? `$${v.toLocaleString()}` : '—';
 const pct = (v) => v != null ? `${v.toFixed(1)}%` : '—';
 
 export default function Dashboard() {
-  const { summary, denialReasons, trends, payerBreakdown, aging, loading, error } = useDashboard();
+  const { summary, denialReasons, trends, payerBreakdown, payerPage, payerTotalPages, setPayerPage, aging, loading, error } = useDashboard();
 
   if (loading) return (
     <div className="page" style={{ display: 'flex', justifyContent: 'center', paddingTop: '4rem' }}>
@@ -66,7 +66,12 @@ export default function Dashboard() {
 
       <div className="chart-grid">
         <div className="chart-card">
-          <PayerBreakdown breakdown={payerBreakdown} />
+          <PayerBreakdown
+            breakdown={payerBreakdown}
+            page={payerPage}
+            totalPages={payerTotalPages}
+            onPageChange={setPayerPage}
+          />
         </div>
         {aging?.length > 0 && (
           <div className="chart-card">
