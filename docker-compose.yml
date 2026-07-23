@@ -57,10 +57,10 @@ services:
       - ./backend/src:/app/backend/src
       - uploads:/app/backend/uploads
       - ./data:/app/backend/data
-      - C:\INCOMING_837:/incoming/837
-      - C:\INCOMING_837_PROCESSED:/incoming/837_processed
-      - C:\INCOMING_835:/incoming/835
-      - C:\INCOMING_835_PROCESSED:/incoming/835_processed
+      - ./incoming/837:/incoming/837
+      - ./incoming/837_processed:/incoming/837_processed
+      - ./incoming/835:/incoming/835
+      - ./incoming/835_processed:/incoming/835_processed
 
   frontend:
     build:

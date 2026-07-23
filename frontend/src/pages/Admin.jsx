@@ -74,6 +74,7 @@ export default function Admin() {
 
   const handleCancelEdit = () => {
     setEditing(null);
+    setEditValues({...settings});
     setSettingsMessage('');
   };
 

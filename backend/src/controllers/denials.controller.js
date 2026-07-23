@@ -9,12 +9,13 @@ exports.listDenials = async (req, res, next) => {
     const where = {};
     if (denial_code) where.denial_code = denial_code;
     if (search) {
+      const escaped = search.replace(/'/g, "''");
       where[Op.or] = [
-        { denial_code: { [Op.iLike]: `%${search}%` } },
-        { reason_description: { [Op.iLike]: `%${search}%` } },
-        { '$Claim.claim_id$': { [Op.iLike]: `%${search}%` } },
-        { '$Claim.patient_first_name$': { [Op.iLike]: `%${search}%` } },
-        { '$Claim.patient_last_name$': { [Op.iLike]: `%${search}%` } },
+        literal(`"DenialReason"."denial_code" ILIKE '%${escaped}%'`),
+        literal(`"DenialReason"."reason_description" ILIKE '%${escaped}%'`),
+        literal(`"Claim"."claim_id" ILIKE '%${escaped}%'`),
+        literal(`"Claim"."patient_first_name" ILIKE '%${escaped}%'`),
+        literal(`"Claim"."patient_last_name" ILIKE '%${escaped}%'`),
       ];
     }
 
@@ -62,7 +63,8 @@ exports.listDenials = async (req, res, next) => {
       });
 
       const topCode = await DenialReason.findAll({
-        attributes: ['denial_code', [fn('COUNT', col('id')), 'count']],
+        attributes: ['denial_code', [fn('COUNT', col('DenialReason.id')), 'count']],
+        include: [{ model: Claim, attributes: [], required: true }],
         where,
         group: ['denial_code'],
         order: [[literal('"count"'), 'DESC']],
