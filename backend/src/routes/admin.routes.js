@@ -18,6 +18,18 @@ router.post('/users', authenticate, requireAdmin, async (req, res, next) => {
   } catch (error) { next(error); }
 });
 
+router.put('/users/:id/role', authenticate, requireAdmin, async (req, res, next) => {
+  try {
+    const { role } = req.body;
+    if (!['staff', 'admin'].includes(role)) return res.status(400).json({ error: 'Invalid role. Must be "staff" or "admin".' });
+    const user = await User.findByPk(req.params.id);
+    if (!user) return res.status(404).json({ error: 'User not found.' });
+    user.role = role;
+    await user.save();
+    res.json({ user: user.toSafeJSON() });
+  } catch (error) { next(error); }
+});
+
 // Settings (admin only)
 router.get('/settings', authenticate, requireAdmin, adminController.getSettings);
 router.put('/settings', authenticate, requireAdmin, adminController.updateSettings);
