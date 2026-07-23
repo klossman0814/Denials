@@ -8,5 +8,6 @@ router.post('/:type', authenticate, (req, res, next) => {
   upload(req, res, (err) => { if (err) return next(err); controller.uploadFile(req, res, next); });
 });
 router.get('/files', authenticate, controller.listFiles);
+router.get('/files/:id', authenticate, controller.getFile);
 
 module.exports = router;

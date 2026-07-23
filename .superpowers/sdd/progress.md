@@ -5,3 +5,4 @@ Base commit: 35ac5e7
 
 
 Task 1: complete (commits 49bdb08, model columns + status enums)
+Task 3-5: complete (commit 401fd63, detection heuristic + matching + corrected file naming)

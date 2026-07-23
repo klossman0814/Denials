@@ -1,6 +1,6 @@
 const uploadService = require('../services/upload.service');
 const ediQueue = require('../queue/ediQueue');
-const { UploadedFile } = require('../models');
+const { UploadedFile, Claim, Remittance } = require('../models');
 const fs = require('fs');
 const crypto = require('crypto');
 
@@ -27,6 +27,8 @@ exports.uploadFile = async (req, res, next) => {
       });
     }
 
+    const manualSupersedes = req.body.supersedes || null;
+
     // Create file record in 'queued' status
     const fileRecord = await UploadedFile.create({
       filename: req.file.filename || req.file.originalname,
@@ -36,6 +38,7 @@ exports.uploadFile = async (req, res, next) => {
       content_hash: contentHash,
       status: 'queued',
       uploaded_by: req.user?.id || null,
+      supersedes_id: manualSupersedes || undefined,
     });
 
     // Enqueue processing job (or fall back to synchronous processing)
@@ -44,6 +47,7 @@ exports.uploadFile = async (req, res, next) => {
         filePath: req.file.path,
         fileType,
         uploadedBy: req.user?.id || null,
+        manualSupersedes,
       });
 
       res.status(202).json({
@@ -69,6 +73,10 @@ exports.listFiles = async (req, res, next) => {
     const { page = 1, limit = 25 } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
     const { rows, count } = await UploadedFile.findAndCountAll({
+      include: [
+        { association: 'Supersedes', attributes: ['id', 'filename', 'uploaded_at'] },
+        { association: 'SupersededBy', attributes: ['id', 'filename', 'uploaded_at'] },
+      ],
       order: [['uploaded_at', 'DESC']],
       limit: parseInt(limit),
       offset,
@@ -79,5 +87,22 @@ exports.listFiles = async (req, res, next) => {
       page: parseInt(page),
       totalPages: Math.ceil(count / parseInt(limit)),
     });
+  } catch (error) { next(error); }
+};
+
+exports.getFile = async (req, res, next) => {
+  try {
+    const file = await UploadedFile.findByPk(req.params.id, {
+      include: [
+        { association: 'Supersedes', attributes: ['id', 'filename', 'uploaded_at', 'status'] },
+        { association: 'SupersededBy', attributes: ['id', 'filename', 'uploaded_at', 'status'] },
+      ],
+    });
+    if (!file) return res.status(404).json({ error: 'File not found' });
+
+    const claims = await Claim.findAll({ where: { file_id: file.id } });
+    const remittances = await Remittance.findAll({ where: { file_id: file.id } });
+
+    res.json({ file, claims, remittances });
   } catch (error) { next(error); }
 };
