@@ -69,7 +69,8 @@ h2 { font-size: 1.5rem; font-weight: 600; }
 .data-table tr:last-child td { border-bottom: none; }
 .data-table tr:hover { background: var(--bg-hover); }
 
-.stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+.stat-card-value { white-space: nowrap; font-size: clamp(1rem, 2.5vw, 1.5rem); font-weight: 700; }
 .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem; }
 @media (max-width: 768px) { .chart-grid { grid-template-columns: 1fr; } }
 

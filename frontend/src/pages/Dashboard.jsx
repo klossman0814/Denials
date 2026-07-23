@@ -8,7 +8,7 @@ import FinancialImpact from '../components/Charts/FinancialImpact';
 import PayerBreakdown from '../components/Charts/PayerBreakdown';
 
 const fmt = (v) => v != null ? Number(v).toLocaleString() : '—';
-const currency = (v) => v != null ? `$${v.toLocaleString()}` : '—';
+const currency = (v) => v != null ? `$${Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—';
 const pct = (v) => v != null ? `${v.toFixed(1)}%` : '—';
 
 export default function Dashboard() {
@@ -41,7 +41,7 @@ export default function Dashboard() {
         {statCards.map((s, i) => (
           <div key={i} className="card stat-card">
             <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>{s.label}</div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: s.color }}>{s.value}</div>
+            <div className="stat-card-value" style={{ color: s.color }}>{s.value}</div>
           </div>
         ))}
       </div>
