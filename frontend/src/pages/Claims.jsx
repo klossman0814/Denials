@@ -43,9 +43,9 @@ export default function Claims() {
           <option value="partial">Partial</option>
         </select>
         <input className="form-input" type="date" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
-          style={{ width: '160px' }} title="Service date from" />
+          style={{ width: '160px' }} title="Submission date (BHT) from" />
         <input className="form-input" type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
-          style={{ width: '160px' }} title="Service date to" />
+          style={{ width: '160px' }} title="Submission date (BHT) to" />
       </div>
 
       {loading ? (
@@ -58,7 +58,7 @@ export default function Claims() {
             <thead>
               <tr>
                 <th>Claim ID</th><th>Patient</th><th>Payer</th><th>Status</th>
-                <th>Charges</th><th>Paid</th><th>Service Date</th><th></th>
+                <th>Charges</th><th>Paid</th><th>Submission Date</th><th></th>
               </tr>
             </thead>
             <tbody>
@@ -70,7 +70,7 @@ export default function Claims() {
                   <td><StatusBadge status={c.status} /></td>
                   <td>{currency(c.total_charge)}</td>
                   <td>{currency(c.total_paid)}</td>
-                  <td>{c.service_date_start ? new Date(c.service_date_start).toLocaleDateString() : (c.service_date_end ? new Date(c.service_date_end).toLocaleDateString() : '—')}</td>
+                  <td>{c.bht_date ? new Date(c.bht_date).toLocaleDateString() : (c.service_date_start ? new Date(c.service_date_start).toLocaleDateString() : '—')}</td>
                   <td><Link to={`/claims/${c.id}`} className="btn btn-primary" style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem' }}>View</Link></td>
                 </tr>
               ))}

@@ -18,9 +18,9 @@ exports.listClaims = async (req, res, next) => {
       ];
     }
     if (dateFrom || dateTo) {
-      where.service_date_start = {};
-      if (dateFrom) where.service_date_start[Op.gte] = dateFrom;
-      if (dateTo) where.service_date_start[Op.lte] = dateTo;
+      where.bht_date = {};
+      if (dateFrom) where.bht_date[Op.gte] = dateFrom;
+      if (dateTo) where.bht_date[Op.lte] = dateTo;
     }
     const { rows, count } = await Claim.findAndCountAll({
       where,
