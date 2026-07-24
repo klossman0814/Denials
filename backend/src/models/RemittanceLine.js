@@ -5,7 +5,7 @@ const RemittanceLine = sequelize.define('RemittanceLine', {
   id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
   line_number: { type: DataTypes.INTEGER },
   procedure_code: { type: DataTypes.STRING(20) },
-  modifier: { type: DataTypes.STRING(10) },
+  modifier: { type: DataTypes.STRING(30) },
   charge_amount: { type: DataTypes.DECIMAL(10, 2) },
   paid_amount: { type: DataTypes.DECIMAL(10, 2) },
   unit_count: { type: DataTypes.DECIMAL(8, 2) },
