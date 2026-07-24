@@ -70,21 +70,25 @@ class DashboardService {
     if (cached) return cached;
     const claimTrends = await Claim.findAll({
       attributes: [
-        [literal("DATE(COALESCE(\"service_date_start\", \"service_date_end\", NULLIF(\"bht_date\", '')::date, \"created_at\"::date))"), 'date'],
+        [literal('DATE("service_date_start")'), 'date'],
         [fn('COUNT', col('id')), 'count'],
       ],
-      where: literal(`COALESCE("service_date_start", "service_date_end", NULLIF("bht_date", '')::date, "created_at"::date) >= CURRENT_DATE - INTERVAL '${days} days'`),
-      group: [literal(1)], order: [[literal(1), 'ASC']], raw: true,
-    });
+      where: { service_date_start: { [Op.ne]: null } },
+      group: [literal('DATE("service_date_start")')],
+      order: [[literal('DATE("service_date_start")'), 'DESC']],
+      limit: 30,
+      raw: true,
+    }).then(r => r.reverse());
     const denialTrends = await sequelize.query(
-      `SELECT DATE(COALESCE(c.service_date_start, c.service_date_end, NULLIF(c.bht_date, '')::date, dr.created_at::date)) AS date,
-              COUNT(*) AS count
+      `SELECT c.service_date_start AS date, COUNT(*) AS count
        FROM denial_reasons dr
-       LEFT JOIN claims c ON c.id = dr.claim_id
-       WHERE COALESCE(c.service_date_start, c.service_date_end, NULLIF(c.bht_date, '')::date, dr.created_at::date) >= CURRENT_DATE - INTERVAL '${days} days'
-       GROUP BY date ORDER BY date ASC`,
+       JOIN claims c ON c.id = dr.claim_id
+       WHERE c.service_date_start IS NOT NULL
+       GROUP BY c.service_date_start
+       ORDER BY c.service_date_start DESC
+       LIMIT 30`,
       { type: sequelize.QueryTypes.SELECT, raw: true }
-    );
+    ).then(r => r.reverse());
     const result = { claimTrends, denialTrends };
     await cache.set(cacheKey, result);
     return result;
