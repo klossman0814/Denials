@@ -33,7 +33,7 @@ function startWatcher(dir837, dir835) {
       const in835dir = rel835 === '' || (!rel835.startsWith('..') && !path.isAbsolute(rel835));
 
       if (in837dir && (ext === '.837' || ext === '.edi' || ext === '.txt' || ext === '.bak')) fileType = '837';
-      else if (in835dir && (ext === '.835' || ext === '.edi' || ext === '.txt' || ext === '.dat')) fileType = '835';
+      else if (in835dir && (ext === '.835' || ext === '.era' || ext === '.edi' || ext === '.txt' || ext === '.dat')) fileType = '835';
 
       if (fileType) {
         logger.info(`File detected: ${filePath} (type: ${fileType})`);

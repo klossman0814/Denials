@@ -16,10 +16,10 @@ const storage = multer.diskStorage({
 });
 
 const fileFilter = (req, file, cb) => {
-  if (file.originalname.match(/\.(edi|837|835|txt|bak|dat)$/i) || file.mimetype === 'text/plain') {
+  if (file.originalname.match(/\.(edi|837|835|txt|bak|dat|era)$/i) || file.mimetype === 'text/plain') {
     cb(null, true);
   } else {
-    cb(new Error('Only .edi, .837, .835, .txt, .bak, .dat files allowed'), false);
+    cb(new Error('Only .edi, .837, .835, .txt, .bak, .dat, .era files allowed'), false);
   }
 };
 
