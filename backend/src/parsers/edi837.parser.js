@@ -304,7 +304,7 @@ function parse837(content) {
           claim_id: (elements[1] || '').trim(),
           total_charge: parseEDIAmount(elements[2]),
           claim_filing_type: subContext.claim_filing_type || '',
-          pos_code: (elements[5] || '').trim(),
+          pos_code: (getSubElements(elements[5] || '')[0] || '').trim(),
 
           // Patient (fall back to subscriber when no separate HL*23 patient level)
           patient_first_name: patContext.first_name || subContext.first_name || '',
