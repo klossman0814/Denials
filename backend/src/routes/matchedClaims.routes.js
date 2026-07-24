@@ -44,7 +44,13 @@ router.get('/', authenticate, async (req, res, next) => {
           ],
           [
             sequelize.literal(`(
-              SELECT "remittance_date" FROM "remittances" WHERE "remittances"."claim_id" = "Claim"."id" ORDER BY "created_at" DESC LIMIT 1
+              SELECT COALESCE(
+                MAX(r."remittance_date"),
+                (SELECT MAX(rf."payment_date") FROM "remittance_files" rf 
+                 JOIN "remittances" r2 ON r2."remittance_file_id" = rf."id"
+                 WHERE r2."claim_id" = "Claim"."id")
+              )
+              FROM "remittances" r WHERE r."claim_id" = "Claim"."id"
             )`),
             'last_remittance_date',
           ],
