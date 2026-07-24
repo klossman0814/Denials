@@ -5,7 +5,13 @@ function splitSegments(content) {
 
 function parseSegment(segment) { return segment.split('*'); }
 
-function getSubElements(element) { return element.split(':'); }
+function getSubElements(element) {
+  // X12 sub-element separator can be : or > depending on the file
+  if (!element) return [];
+  const colonSplit = element.split(':');
+  if (colonSplit.length > 1) return colonSplit;
+  return element.split('>');
+}
 
 function parseEDIDate(dateStr) {
   if (!dateStr) return null;
