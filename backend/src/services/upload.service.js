@@ -34,6 +34,20 @@ class UploadService {
     });
     if (existing) {
       logger.info(`Duplicate file detected: ${filename} matches already-processed file ${existing.filename} (${existing.id})`);
+      // Move duplicate to duplicates directory
+      try {
+        const dupDir = fileType === '837' ? config.upload.duplicatesDir837 : config.upload.duplicatesDir835;
+        if (dupDir) {
+          const absDupDir = path.resolve(dupDir);
+          fs.mkdirSync(absDupDir, { recursive: true });
+          const destPath = path.join(absDupDir, filename);
+          fs.copyFileSync(filePath, destPath);
+          fs.unlinkSync(filePath);
+          logger.info(`Moved duplicate ${filename} to ${absDupDir}`);
+        }
+      } catch (moveErr) {
+        logger.warn(`Could not move duplicate ${filename}: ${moveErr.message}`);
+      }
       return {
         file: existing,
         recordsCreated: 0,

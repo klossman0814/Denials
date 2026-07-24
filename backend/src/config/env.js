@@ -22,6 +22,8 @@ module.exports = {
     dir835: process.env.UPLOAD_DIR_835 || './data/835',
     processedDir837: process.env.PROCESSED_DIR_837 || './data/837_processed',
     processedDir835: process.env.PROCESSED_DIR_835 || './data/835_processed',
+    duplicatesDir837: process.env.DUPLICATES_DIR_837 || './data/837_duplicates',
+    duplicatesDir835: process.env.DUPLICATES_DIR_835 || './data/835_duplicates',
     maxFileSize: parseInt(process.env.MAX_FILE_SIZE, 10) || 10485760,
   },
   redis: {

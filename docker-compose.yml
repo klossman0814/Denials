@@ -48,6 +48,8 @@ services:
       UPLOAD_DIR_835: /incoming/835
       PROCESSED_DIR_837: /incoming/837_processed
       PROCESSED_DIR_835: /incoming/835_processed
+      DUPLICATES_DIR_837: /incoming/837_duplicates
+      DUPLICATES_DIR_835: /incoming/835_duplicates
     depends_on:
       db:
         condition: service_healthy
@@ -61,6 +63,8 @@ services:
       - ./incoming/837_processed:/incoming/837_processed
       - ./incoming/835:/incoming/835
       - ./incoming/835_processed:/incoming/835_processed
+      - ./incoming/835_duplicates:/incoming/835_duplicates
+      - ./incoming/837_duplicates:/incoming/837_duplicates
 
   frontend:
     build:
