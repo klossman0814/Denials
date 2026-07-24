@@ -26,6 +26,8 @@ export default function Denials() {
   const [denialCode, setDenialCode] = useState('');
   const [payer, setPayer] = useState('');
   const [status, setStatus] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [loading, setLoading] = useState(true);
   const debouncedSearch = useDebounce(search, 300);
   const debouncedDenialCode = useDebounce(denialCode, 300);
@@ -34,7 +36,7 @@ export default function Denials() {
 
   useEffect(() => {
     setLoading(true);
-    denialsApi.list({ page, limit, search: debouncedSearch || undefined, denial_code: debouncedDenialCode || undefined, payer: debouncedPayer || undefined, status: status || undefined })
+    denialsApi.list({ page, limit, search: debouncedSearch || undefined, denial_code: debouncedDenialCode || undefined, payer: debouncedPayer || undefined, status: status || undefined, dateFrom: dateFrom || undefined, dateTo: dateTo || undefined })
       .then(res => {
         setDenials(res.data.denials);
         setSummary(res.data.summary);
@@ -42,7 +44,7 @@ export default function Denials() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [page, search, denialCode, payer, status]);
+  }, [page, search, denialCode, payer, status, dateFrom, dateTo]);
 
   const handleRowClick = (claimId) => {
     if (claimId) navigate(`/claims/${claimId}`);
@@ -82,6 +84,10 @@ export default function Denials() {
           <option value="denied">Denied</option>
           <option value="partial">Partial</option>
         </select>
+        <input className="form-input" type="date" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
+          style={{ width: '160px' }} title="Remittance date from" placeholder="From date" />
+        <input className="form-input" type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
+          style={{ width: '160px' }} title="Remittance date to" placeholder="To date" />
       </div>
 
       {/* Table */}

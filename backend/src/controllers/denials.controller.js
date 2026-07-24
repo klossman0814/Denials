@@ -1,5 +1,5 @@
 const { Op, fn, col, literal } = require('sequelize');
-const { DenialReason, Claim, ClaimLine, RemittanceLine } = require('../models');
+const { DenialReason, Claim, ClaimLine, RemittanceLine, Remittance } = require('../models');
 
 // CAS reason code descriptions (industry-standard)
 const CAS_DESCRIPTIONS = {
@@ -48,7 +48,7 @@ function getReasonDescription(denialCode, existingDescription) {
 
 exports.listDenials = async (req, res, next) => {
   try {
-    const { page = 1, limit = 25, search, denial_code, payer, status } = req.query;
+    const { page = 1, limit = 25, search, denial_code, payer, status, dateFrom, dateTo } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
 
     const where = {};
@@ -68,9 +68,23 @@ exports.listDenials = async (req, res, next) => {
     if (payer) claimWhere.payer_name = { [Op.iLike]: `%${payer}%` };
     if (status) claimWhere.status = status;
 
+    const remittanceInclude = {
+      model: Remittance,
+      attributes: ['remittance_date', 'total_charge', 'total_paid', 'adjustment_amount'],
+      required: false,
+    };
+    if (dateFrom || dateTo) {
+      remittanceInclude.where = {};
+      if (dateFrom) remittanceInclude.where.remittance_date = { ...remittanceInclude.where.remittance_date, [Op.gte]: dateFrom };
+      if (dateTo) remittanceInclude.where.remittance_date = { ...remittanceInclude.where.remittance_date, [Op.lte]: dateTo };
+      // When filtering by date, the join must be required to ensure we only get matched records
+      remittanceInclude.required = true;
+    }
+
     const { rows, count } = await DenialReason.findAndCountAll({
       where,
       include: [
+        remittanceInclude,
         {
           model: Claim,
           where: Object.keys(claimWhere).length ? claimWhere : undefined,
@@ -105,6 +119,10 @@ exports.listDenials = async (req, res, next) => {
     };
 
     if (parseInt(page) === 1) {
+      const summaryInclude = [{ model: Claim, attributes: [], required: true }];
+      if (dateFrom || dateTo) {
+        summaryInclude.push({ model: Remittance, attributes: [], required: true, where: remittanceInclude.where });
+      }
       const summaryQuery = await DenialReason.findAll({
         attributes: [
           [fn('COUNT', col('DenialReason.id')), 'totalDenials'],
@@ -112,14 +130,14 @@ exports.listDenials = async (req, res, next) => {
           [fn('COUNT', literal('DISTINCT "DenialReason"."denial_code"')), 'uniqueCodes'],
           [fn('COUNT', literal('DISTINCT "Claim"."payer_name"')), 'payersAffected'],
         ],
-        include: [{ model: Claim, attributes: [], required: true }],
+        include: summaryInclude,
         where: where,
         raw: true,
       });
 
       const topCode = await DenialReason.findAll({
         attributes: ['denial_code', [fn('COUNT', col('DenialReason.id')), 'count']],
-        include: [{ model: Claim, attributes: [], required: true }],
+        include: summaryInclude,
         where,
         group: ['denial_code'],
         order: [[literal('"count"'), 'DESC']],
@@ -141,6 +159,7 @@ exports.listDenials = async (req, res, next) => {
       const claim = json.Claim || {};
       const claimLine = json.ClaimLine || {};
       const remittanceLine = json.RemittanceLine || {};
+      const remittance = json.Remittance || {};
 
       // Procedure code: check RemittanceLine first (835 line-level), then ClaimLine (837 line-level)
       const procedureCode = remittanceLine?.procedure_code || claimLine?.procedure_code || null;
@@ -170,7 +189,7 @@ exports.listDenials = async (req, res, next) => {
         serviceDateEnd: claim.service_date_end,
         claimStatus: claim.status,
         procedureCode,
-        remittanceDate: json.remittance_date,
+        remittanceDate: remittance.remittance_date,
       };
     });
 
