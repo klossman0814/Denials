@@ -33,6 +33,8 @@ export default function Dashboard() {
     { label: 'Avg Days to Resolve', value: fmt(summary?.avgResolutionDays) + 'd', color: 'var(--color-primary)' },
     { label: 'Claims w/o 835', value: fmt(summary?.claimsNo835), color: 'var(--color-error)' },
     { label: 'Remits w/o 837', value: fmt(summary?.remitsNo837), color: 'var(--color-warning)' },
+    { label: 'Claims w/ 835', value: fmt(summary?.claimsWith835), color: 'var(--color-success)' },
+    { label: 'Remits w/ 837', value: fmt(summary?.remitsWith837), color: 'var(--color-primary)' },
   ];
 
   return (
