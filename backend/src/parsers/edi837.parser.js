@@ -42,10 +42,20 @@ function parse837(content) {
       currentClaim.patient_dob = currentClaim.patient_dob || pat.dob || null;
       currentClaim.patient_gender = currentClaim.patient_gender || pat.gender || '';
       currentClaim.patient_member_id = currentClaim.patient_member_id || pat.member_id || '';
+      currentClaim.patient_middle_initial = currentClaim.patient_middle_initial || pat.middle_initial || '';
+      currentClaim.patient_suffix = currentClaim.patient_suffix || pat.suffix || '';
+      currentClaim.patient_address1 = currentClaim.patient_address1 || pat.address1 || '';
+      currentClaim.patient_address2 = currentClaim.patient_address2 || pat.address2 || '';
+      currentClaim.patient_city = currentClaim.patient_city || pat.city || '';
+      currentClaim.patient_state = currentClaim.patient_state || pat.state || '';
+      currentClaim.patient_zip = currentClaim.patient_zip || pat.zip || '';
       currentClaim.subscriber_id = currentClaim.subscriber_id || sub.subscriber_id || '';
       currentClaim.subscriber_first_name = currentClaim.subscriber_first_name || sub.first_name || '';
       currentClaim.subscriber_last_name = currentClaim.subscriber_last_name || sub.last_name || '';
       currentClaim.subscriber_relationship_code = currentClaim.subscriber_relationship_code || sub.relationship_code || '';
+      currentClaim.subscriber_middle_initial = currentClaim.subscriber_middle_initial || sub.middle_initial || '';
+      currentClaim.subscriber_suffix = currentClaim.subscriber_suffix || sub.suffix || '';
+      currentClaim.subscriber_group_number = currentClaim.subscriber_group_number || sub.group_number || '';
       currentClaim.provider_name = currentClaim.provider_name || bp.name || '';
       currentClaim.provider_npi = currentClaim.provider_npi || bp.npi || '';
       currentClaim.provider_tax_id = currentClaim.provider_tax_id || bp.tax_id || '';
@@ -158,26 +168,36 @@ function parse837(content) {
           case 'IL': // Insured/Subscriber
             subscriber = getContext('22');
             subscriber.first_name = first;
+            subscriber.middle_initial = middle;
             subscriber.last_name = last;
+            subscriber.suffix = elements[7] || '';
             subscriber.subscriber_id = idCode || subscriber.subscriber_id || '';
             if (currentClaim) {
               currentClaim.subscriber_id = currentClaim.subscriber_id || subscriber.subscriber_id;
               currentClaim.subscriber_first_name = currentClaim.subscriber_first_name || first;
+              currentClaim.subscriber_middle_initial = currentClaim.subscriber_middle_initial || middle;
               currentClaim.subscriber_last_name = currentClaim.subscriber_last_name || last;
+              currentClaim.subscriber_suffix = currentClaim.subscriber_suffix || (elements[7] || '');
             }
             break;
           case 'QC': // Patient
             patient = getContext('23');
             patient.first_name = first;
+            patient.middle_initial = middle;
             patient.last_name = last;
+            patient.suffix = elements[7] || '';
             patient.member_id = idCode || '';
             // Always also store on subscriber context as fallback for when no HL*23 exists
             subscriber.first_name = subscriber.first_name || first;
+            subscriber.middle_initial = subscriber.middle_initial || middle;
             subscriber.last_name = subscriber.last_name || last;
+            subscriber.suffix = subscriber.suffix || (elements[7] || '');
             subscriber.member_id = subscriber.member_id || idCode || '';
             if (currentClaim) {
               currentClaim.patient_first_name = currentClaim.patient_first_name || first;
+              currentClaim.patient_middle_initial = currentClaim.patient_middle_initial || middle;
               currentClaim.patient_last_name = currentClaim.patient_last_name || last;
+              currentClaim.patient_suffix = currentClaim.patient_suffix || (elements[7] || '');
               currentClaim.patient_member_id = currentClaim.patient_member_id || idCode || '';
             }
             break;
@@ -308,16 +328,26 @@ function parse837(content) {
 
           // Patient (fall back to subscriber when no separate HL*23 patient level)
           patient_first_name: patContext.first_name || subContext.first_name || '',
+          patient_middle_initial: patContext.middle_initial || subContext.middle_initial || '',
           patient_last_name: patContext.last_name || subContext.last_name || '',
+          patient_suffix: patContext.suffix || subContext.suffix || '',
           patient_member_id: patContext.member_id || subContext.member_id || '',
           patient_dob: patContext.dob || subContext.dob || null,
           patient_gender: patContext.gender || subContext.gender || '',
           patient_relationship_code: patContext.relationship_code || subContext.relationship_code || '',
+          patient_address1: patContext.address1 || subContext.address1 || '',
+          patient_address2: patContext.address2 || subContext.address2 || '',
+          patient_city: patContext.city || subContext.city || '',
+          patient_state: patContext.state || subContext.state || '',
+          patient_zip: patContext.zip || subContext.zip || '',
 
           // Subscriber
           subscriber_first_name: subContext.first_name || '',
+          subscriber_middle_initial: subContext.middle_initial || '',
           subscriber_last_name: subContext.last_name || '',
+          subscriber_suffix: subContext.suffix || '',
           subscriber_id: subContext.subscriber_id || '',
+          subscriber_group_number: subContext.group_number || '',
           subscriber_relationship_code: subContext.relationship_code || '',
 
           // Billing Provider
@@ -442,6 +472,10 @@ function parse837(content) {
           const sub = getContext('22');
           if (!sub.subscriber_id) sub.subscriber_id = refVal;
           if (currentClaim) currentClaim.subscriber_id = currentClaim.subscriber_id || refVal;
+        } else if (refQual === '6P' || refQual === 'EJ') {
+          const sub = getContext('22');
+          sub.group_number = sub.group_number || refVal;
+          if (currentClaim) currentClaim.subscriber_group_number = currentClaim.subscriber_group_number || refVal;
         }
 
         if (currentClaim) {
