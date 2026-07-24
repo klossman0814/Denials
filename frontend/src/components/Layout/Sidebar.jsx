@@ -8,6 +8,7 @@ const navItems = [
   { path: '/remittances', label: 'Remittances', icon: '💳' },
   { path: '/upload', label: 'Upload Files', icon: '📤' },
   { path: '/mismatches', label: 'Mismatches', icon: '⚠️' },
+  { path: '/matched-claims', label: 'Matched', icon: '✅' },
   { path: '/admin', label: 'Admin', icon: '⚙️', adminOnly: true },
 ];
 

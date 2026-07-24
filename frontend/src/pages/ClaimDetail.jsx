@@ -5,6 +5,7 @@ import StatusBadge from '../components/StatusBadge';
 
 const currency = (v) => v != null ? `$${Number(v).toLocaleString()}` : '—';
 const dateFmt = (d) => d ? new Date(d).toLocaleDateString() : '—';
+const fmt = (v) => v != null ? Number(v).toLocaleString() : '—';
 
 export default function ClaimDetail() {
   const { id } = useParams();
@@ -22,72 +23,160 @@ export default function ClaimDetail() {
   if (loading) return <div className="page" style={{ textAlign: 'center', padding: '4rem' }}><div className="spinner" /></div>;
   if (!claim) return <div className="page"><p>Claim not found.</p><Link to="/claims">Back</Link></div>;
 
-  const remit = claim.Remittances?.[0];
-  const remitLines = remit?.RemittanceLines || [];
+  const remittances = claim.Remittances || [];
+  const totalPaid = remittances.reduce((s, r) => s + parseFloat(r.total_paid || 0), 0);
+  const totalAdjusted = remittances.reduce((s, r) => s + parseFloat(r.adjustment_amount || 0), 0);
+  const denialCount = denials.length;
+  const denialTotal = denials.reduce((s, d) => s + parseFloat(d.amount || 0), 0);
 
   return (
     <div className="page">
-      <Link to="/claims" style={{ fontSize: '0.875rem', color: 'var(--color-primary)', marginBottom: '1rem', display: 'inline-block' }}>&larr; Back to Claims</Link>
+      <Link to="/matched-claims" style={{ fontSize: '0.875rem', color: 'var(--color-primary)', marginBottom: '1rem', display: 'inline-block' }}>&larr; Back to Matched Claims</Link>
 
+      {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
         <h2 className="page-title" style={{ margin: 0 }}>Claim {claim.claim_id}</h2>
         <StatusBadge status={claim.status} />
       </div>
 
-      <div className="stat-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))' }}>
-        {[
-          { label: 'Patient', value: `${claim.patient_first_name || ''} ${claim.patient_last_name || ''}`.trim() || '—' },
-          { label: 'Payer', value: claim.payer_name || '—' },
-          { label: 'Total Charges', value: currency(claim.total_charge) },
-          { label: 'Total Paid', value: currency(claim.total_paid) },
-          { label: 'Service Dates', value: claim.service_date_start ? `${dateFmt(claim.service_date_start)} – ${dateFmt(claim.service_date_end) || ''}` : '—' },
-        ].map((s, i) => (
-          <div key={i} className="card stat-card">
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{s.label}</div>
-            <div style={{ fontSize: '1.25rem', fontWeight: 600 }}>{s.value}</div>
-          </div>
-        ))}
+      {/* Summary stat cards */}
+      <div className="stat-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}>
+        <div className="card stat-card">
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Patient</div>
+          <div style={{ fontSize: '1.25rem', fontWeight: 600 }}>{`${claim.patient_first_name || ''} ${claim.patient_last_name || ''}`.trim() || '—'}</div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{claim.patient_dob ? dateFmt(claim.patient_dob) : ''} {claim.patient_gender || ''}</div>
+        </div>
+        <div className="card stat-card">
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Payer</div>
+          <div style={{ fontSize: '1.25rem', fontWeight: 600 }}>{claim.payer_name || '—'}</div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>ID: {claim.payer_id || '—'} | Filing: {claim.claim_filing_type || '—'}</div>
+        </div>
+        <div className="card stat-card">
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Charges vs Paid</div>
+          <div style={{ fontSize: '1.25rem', fontWeight: 600 }}>{currency(claim.total_charge)}</div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Paid: {currency(totalPaid)} | Adjustments: {currency(totalAdjusted)}</div>
+        </div>
+        <div className="card stat-card">
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Denials</div>
+          <div style={{ fontSize: '1.25rem', fontWeight: 600 }}>{fmt(denialCount)}</div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Total: {currency(denialTotal)}</div>
+        </div>
+        <div className="card stat-card">
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Service Dates</div>
+          <div style={{ fontSize: '1.25rem', fontWeight: 600 }}>{dateFmt(claim.service_date_start) || '—'}</div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Through: {dateFmt(claim.service_date_end) || '—'}</div>
+        </div>
+        <div className="card stat-card">
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Remittances</div>
+          <div style={{ fontSize: '1.25rem', fontWeight: 600 }}>{fmt(remittances.length)}</div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Days to Resolve: {claim.days_to_resolve != null ? fmt(claim.days_to_resolve) + 'd' : '—'}</div>
+        </div>
       </div>
 
-      {remit?.RemittanceFile && (
+      {/* 837 Claim Info */}
+      <div className="card" style={{ marginTop: '1.5rem' }}>
+        <div className="card-header">837 Claim Details</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1rem', padding: '1rem', fontSize: '0.875rem' }}>
+          <div><strong>Claim ID:</strong> <span style={{ fontFamily: 'monospace' }}>{claim.claim_id || '—'}</span></div>
+          <div><strong>Subscriber:</strong> {`${claim.subscriber_first_name || ''} ${claim.subscriber_last_name || ''}`.trim() || '—'} ({claim.subscriber_id || '—'})</div>
+          <div><strong>Provider:</strong> {claim.provider_name || '—'} {claim.provider_npi ? `(NPI: ${claim.provider_npi})` : ''}</div>
+          <div><strong>POS:</strong> {claim.pos_code || '—'}</div>
+          <div><strong>BHT Ref:</strong> {claim.bht_reference || '—'} | Date: {claim.bht_date || '—'}</div>
+          <div><strong>Admission:</strong> {dateFmt(claim.admission_date) || '—'} | Discharge: {dateFmt(claim.discharge_date) || '—'} | Hour: {claim.discharge_hour || '—'}</div>
+          <div><strong>Admit Type:</strong> {claim.admit_type_code || '—'} | Source: {claim.admit_source_code || '—'} | Status: {claim.patient_status_code || '—'}</div>
+          <div><strong>DRG:</strong> {claim.drg_code || '—'} | Weight: {claim.drg_weight || '—'}</div>
+          <div><strong>Rendering Provider:</strong> {claim.rendering_provider_name || '—'} {claim.rendering_provider_npi ? `(${claim.rendering_provider_npi})` : ''}</div>
+          <div><strong>Attending:</strong> {claim.attending_provider_name || '—'} | <strong>Operating:</strong> {claim.operating_provider_name || '—'}</div>
+          <div><strong>Referring:</strong> {claim.referring_provider_name || '—'} | <strong>Facility:</strong> {claim.service_facility_name || '—'}</div>
+          <div><strong>Billing Address:</strong> {[claim.provider_address1, claim.provider_city, claim.provider_state].filter(Boolean).join(', ') || '—'}</div>
+        </div>
+      </div>
+
+      {/* All 835 Remittances */}
+      {remittances.length > 0 && (
         <div className="card" style={{ marginTop: '1.5rem' }}>
-          <div className="card-header">835 Payment Info</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem', padding: '1rem' }}>
-            <div><strong>Payer:</strong> {remit.RemittanceFile.payer_name || '—'}</div>
-            <div><strong>Payment:</strong> {currency(remit.RemittanceFile.total_payment)}</div>
-            <div><strong>Payment Date:</strong> {dateFmt(remit.RemittanceFile.payment_date)}</div>
-            <div><strong>Method:</strong> {remit.RemittanceFile.payment_method || '—'}</div>
-            <div><strong>Trace #:</strong> {remit.RemittanceFile.trace_number || '—'}</div>
-          </div>
+          <div className="card-header">835 Remittance Analysis ({remittances.length} total)</div>
+          {remittances.map((remit, ri) => (
+            <div key={remit.id} style={{ border: '1px solid var(--border-color)', borderRadius: '6px', margin: '0.75rem', padding: '1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                <strong style={{ fontSize: '0.95rem' }}>Remittance #{ri + 1}</strong>
+                <StatusBadge status={remit.status} />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '0.75rem', fontSize: '0.85rem', marginBottom: '0.75rem' }}>
+                <div><strong>Payer Claim ID:</strong> <span style={{ fontFamily: 'monospace' }}>{remit.payer_claim_id || '—'}</span></div>
+                <div><strong>Remittance Date:</strong> {dateFmt(remit.remittance_date)}</div>
+                <div><strong>Charge:</strong> {currency(remit.total_charge)} | <strong>Paid:</strong> {currency(remit.total_paid)}</div>
+                <div><strong>Adjustment:</strong> {currency(remit.adjustment_amount)}</div>
+                <div><strong>Claim Status Code:</strong> {remit.claim_status_code || '—'} | <strong>Filing:</strong> {remit.claim_filing_type || '—'}</div>
+                <div><strong>Service Dates:</strong> {dateFmt(remit.service_date_from)} – {dateFmt(remit.service_date_to) || '—'}</div>
+                {remit.claim_statement_from && <div><strong>Statement Period:</strong> {dateFmt(remit.claim_statement_from)} – {dateFmt(remit.claim_statement_to) || '—'}</div>}
+              </div>
+
+              {/* Payment File Info */}
+              {remit.RemittanceFile && (
+                <div style={{ background: 'var(--bg-hover)', borderRadius: '4px', padding: '0.5rem 0.75rem', marginBottom: '0.75rem', fontSize: '0.8rem' }}>
+                  <strong>File:</strong> {remit.RemittanceFile.payer_name || '—'} | Payment: {currency(remit.RemittanceFile.total_payment)} on {dateFmt(remit.RemittanceFile.payment_date)} | Trace: {remit.RemittanceFile.trace_number || '—'}
+                </div>
+              )}
+
+              {/* Remittance Service Lines */}
+              {remit.RemittanceLines?.length > 0 && (
+                <div style={{ fontSize: '0.85rem' }}>
+                  <strong style={{ fontSize: '0.85rem' }}>Service Lines ({remit.RemittanceLines.length})</strong>
+                  <table className="table" style={{ fontSize: '0.8rem', marginTop: '0.5rem' }}>
+                    <thead>
+                      <tr><th>#</th><th>Procedure</th><th>Mod</th><th>Charge</th><th>Paid</th><th>Units</th><th>Date</th><th>Pt Liab</th><th>Adjustments</th></tr>
+                    </thead>
+                    <tbody>
+                      {remit.RemittanceLines.map(line => (
+                        <tr key={line.id}>
+                          <td>{line.line_number}</td>
+                          <td style={{ fontFamily: 'monospace' }}>{line.procedure_code || '—'}</td>
+                          <td>{line.modifier || '—'}</td>
+                          <td>{currency(line.charge_amount)}</td>
+                          <td>{currency(line.paid_amount)}</td>
+                          <td>{line.unit_count || '1'}</td>
+                          <td>{dateFmt(line.service_date)}</td>
+                          <td>{currency(line.patient_liability)}</td>
+                          <td>
+                            {line.DenialReasons?.length > 0 ? (
+                              <div style={{ fontSize: '0.7rem' }}>
+                                {line.DenialReasons.map(dr => (
+                                  <span key={dr.id} className="badge badge-error" style={{ marginRight: '0.25rem', marginBottom: '0.125rem', display: 'inline-block' }}>
+                                    {dr.denial_code} {currency(dr.amount)}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <span className="badge badge-success" style={{ fontSize: '0.7rem' }}>Paid</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       )}
 
+      {/* Denial Reasons */}
       {denials.length > 0 && (
         <div className="card" style={{ marginTop: '1.5rem' }}>
-          <div className="card-header">Denial Reasons</div>
+          <div className="card-header">All Denial Reasons ({fmt(denials.length)})</div>
           <table className="table">
-            <thead><tr><th>Code</th><th>Group</th><th>Amount</th><th>Date</th></tr></thead>
+            <thead><tr><th>Code</th><th>Group</th><th>Amount</th><th>Level</th><th>Remittance Date</th></tr></thead>
             <tbody>
               {denials.map(d => (
-                <tr key={d.id}><td style={{ fontFamily: 'monospace' }}>{d.denial_code}</td><td>{d.group_code || '—'}</td><td>{currency(d.amount)}</td><td>{d.Remittance?.remittance_date ? dateFmt(d.Remittance.remittance_date) : '—'}</td></tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {claim.ClaimLines?.length > 0 && (
-        <div className="card" style={{ marginTop: '1.5rem' }}>
-          <div className="card-header">837 Billed Claim Lines</div>
-          <table className="table">
-            <thead><tr><th>Line #</th><th>Procedure</th><th>Charge</th><th>Service Date</th></tr></thead>
-            <tbody>
-              {claim.ClaimLines.map(l => (
-                <tr key={l.id}>
-                  <td>{l.line_number}</td>
-                  <td style={{ fontFamily: 'monospace' }}>{l.procedure_code || '—'}</td>
-                  <td>{currency(l.charge_amount)}</td>
-                  <td>{dateFmt(l.service_date)}</td>
+                <tr key={d.id}>
+                  <td style={{ fontFamily: 'monospace' }}>{d.denial_code}</td>
+                  <td>{d.group_code || '—'}</td>
+                  <td>{currency(d.amount)}</td>
+                  <td style={{ fontSize: '0.75rem' }}>{d.claim_line_id ? 'Line' : d.remittance_line_id ? '835 Line' : 'Claim'}</td>
+                  <td>{d.Remittance?.remittance_date ? dateFmt(d.Remittance.remittance_date) : '—'}</td>
                 </tr>
               ))}
             </tbody>
@@ -95,45 +184,26 @@ export default function ClaimDetail() {
         </div>
       )}
 
-      {remitLines.length > 0 && (
+      {/* 837 Billed Lines */}
+      {claim.ClaimLines?.length > 0 && (
         <div className="card" style={{ marginTop: '1.5rem' }}>
-          <div className="card-header">835 Remittance Service Lines ({remitLines.length})</div>
-          <div className="table-responsive">
-            <table className="table">
-              <thead>
-                <tr><th>#</th><th>Procedure</th><th>Mod</th><th>Charge</th><th>Paid</th><th>Units</th>
-                  <th>Service Date</th><th>Ref</th><th>Pt Liability</th><th>Adjustments</th></tr>
-              </thead>
-              <tbody>
-                {remitLines.map(line => (
-                  <tr key={line.id}>
-                    <td>{line.line_number}</td>
-                    <td style={{ fontFamily: 'monospace' }}>{line.procedure_code || '—'}</td>
-                    <td>{line.modifier || '—'}</td>
-                    <td>{currency(line.charge_amount)}</td>
-                    <td>{currency(line.paid_amount)}</td>
-                    <td>{line.unit_count || '1'}</td>
-                    <td>{dateFmt(line.service_date)}</td>
-                    <td style={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>{line.line_control_number || '—'}</td>
-                    <td>{currency(line.patient_liability)}</td>
-                    <td>
-                      {line.DenialReasons?.length > 0 ? (
-                        <div style={{ fontSize: '0.75rem' }}>
-                          {line.DenialReasons.map(dr => (
-                            <span key={dr.id} className="badge badge-error" style={{ marginRight: '0.25rem', marginBottom: '0.125rem', display: 'inline-block' }}>
-                              {dr.denial_code} ${parseFloat(dr.amount || 0).toLocaleString()}
-                            </span>
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="badge badge-success">Paid</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <div className="card-header">837 Billed Lines ({fmt(claim.ClaimLines.length)})</div>
+          <table className="table">
+            <thead><tr><th>#</th><th>Procedure</th><th>Mod</th><th>Charge</th><th>Units</th><th>Revenue Code</th><th>Service Date</th></tr></thead>
+            <tbody>
+              {claim.ClaimLines.map(l => (
+                <tr key={l.id}>
+                  <td>{l.line_number}</td>
+                  <td style={{ fontFamily: 'monospace' }}>{l.procedure_code || '—'}</td>
+                  <td>{l.modifier || '—'}</td>
+                  <td>{currency(l.charge_amount)}</td>
+                  <td>{l.unit_count || '1'}</td>
+                  <td>{l.revenue_code || '—'}</td>
+                  <td>{dateFmt(l.service_date)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
