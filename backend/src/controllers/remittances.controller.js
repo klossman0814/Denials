@@ -3,7 +3,7 @@ const { RemittanceFile, Remittance, RemittanceLine, DenialReason, UploadedFile }
 
 exports.listFiles = async (req, res, next) => {
   try {
-    const { page = 1, limit = 25, search } = req.query;
+    const { page = 1, limit = 25, search, dateFrom, dateTo } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
     const where = {};
     if (search) {
@@ -12,6 +12,11 @@ exports.listFiles = async (req, res, next) => {
         { payee_name: { [Op.iLike]: `%${search}%` } },
         { trace_number: { [Op.iLike]: `%${search}%` } },
       ];
+    }
+    if (dateFrom || dateTo) {
+      where.payment_date = {};
+      if (dateFrom) where.payment_date[Op.gte] = dateFrom;
+      if (dateTo) where.payment_date[Op.lte] = dateTo;
     }
     const { rows, count } = await RemittanceFile.findAndCountAll({
       where,

@@ -20,17 +20,19 @@ export default function Remittances() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [loading, setLoading] = useState(true);
   const debouncedSearch = useDebounce(search, 300);
   const limit = 25;
 
   useEffect(() => {
     setLoading(true);
-    remittancesApi.list({ page, limit, search: debouncedSearch || undefined })
+    remittancesApi.list({ page, limit, search: debouncedSearch || undefined, dateFrom: dateFrom || undefined, dateTo: dateTo || undefined })
       .then(res => { setFiles(res.data.files); setTotal(res.data.total); })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [page, search]);
+  }, [page, search, dateFrom, dateTo]);
 
   const totalPayment = files.reduce((s, f) => s + (parseFloat(f.total_payment) || 0), 0);
 
@@ -44,10 +46,14 @@ export default function Remittances() {
         {search && <SummaryCard label="Search" value={`"${search}"`} />}
       </div>
 
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
         <input className="form-input" placeholder="Search by payer, payee, trace number..."
           value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }}
           style={{ flex: 1, minWidth: '200px' }} />
+        <input className="form-input" type="date" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
+          style={{ width: '160px' }} title="Payment date from" />
+        <input className="form-input" type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
+          style={{ width: '160px' }} title="Payment date to" />
       </div>
 
       {loading ? (

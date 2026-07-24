@@ -4,7 +4,7 @@ const { Claim, ClaimLine, Remittance, RemittanceLine, RemittanceFile, DenialReas
 
 exports.listClaims = async (req, res, next) => {
   try {
-    const { page = 1, limit = 20, status, payer, search } = req.query;
+    const { page = 1, limit = 20, status, payer, search, dateFrom, dateTo } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
     const where = {};
     if (status) where.status = status;
@@ -16,6 +16,11 @@ exports.listClaims = async (req, res, next) => {
         { claim_id: { [Op.iLike]: `%${search}%` } },
         { subscriber_id: { [Op.iLike]: `%${search}%` } },
       ];
+    }
+    if (dateFrom || dateTo) {
+      where.service_date_start = {};
+      if (dateFrom) where.service_date_start[Op.gte] = dateFrom;
+      if (dateTo) where.service_date_start[Op.lte] = dateTo;
     }
     const { rows, count } = await Claim.findAndCountAll({
       where,

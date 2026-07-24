@@ -12,17 +12,19 @@ export default function Claims() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [loading, setLoading] = useState(true);
   const debouncedSearch = useDebounce(search, 300);
   const limit = 20;
 
   useEffect(() => {
     setLoading(true);
-    claimsApi.list({ page, limit, search: debouncedSearch, status }).then(res => {
+    claimsApi.list({ page, limit, search: debouncedSearch, status, dateFrom: dateFrom || undefined, dateTo: dateTo || undefined }).then(res => {
       setClaims(res.data.claims);
       setTotal(res.data.total);
     }).catch(() => {}).finally(() => setLoading(false));
-  }, [page, search, status]);
+  }, [page, search, status, dateFrom, dateTo]);
 
   return (
     <div className="page">
@@ -40,6 +42,10 @@ export default function Claims() {
           <option value="denied">Denied</option>
           <option value="partial">Partial</option>
         </select>
+        <input className="form-input" type="date" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
+          style={{ width: '160px' }} title="Service date from" />
+        <input className="form-input" type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
+          style={{ width: '160px' }} title="Service date to" />
       </div>
 
       {loading ? (
