@@ -33,6 +33,7 @@ const denialsRoutes = require('./routes/denials.routes');
 const remittancesRoutes = require('./routes/remittances.routes');
 const mismatchesRoutes = require('./routes/mismatches.routes');
 const matchedClaimsRoutes = require('./routes/matchedClaims.routes');
+const executiveSummaryRoutes = require('./routes/executiveSummary.routes');
 
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/upload', uploadRoutes);
@@ -43,6 +44,7 @@ app.use('/api/denials', denialsRoutes);
 app.use('/api/remittances', remittancesRoutes);
 app.use('/api/mismatches', mismatchesRoutes);
 app.use('/api/matched-claims', matchedClaimsRoutes);
+app.use('/api/executive-summary', executiveSummaryRoutes);
 
 app.use(errorMiddleware);
 

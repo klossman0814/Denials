@@ -9,6 +9,7 @@ const navItems = [
   { path: '/upload', label: 'Upload Files', icon: '📤' },
   { path: '/mismatches', label: 'Mismatches', icon: '⚠️' },
   { path: '/matched-claims', label: 'Matched', icon: '✅' },
+  { path: '/executive-summary', label: 'Executive', icon: '📊' },
   { path: '/admin', label: 'Admin', icon: '⚙️', adminOnly: true },
 ];
 
