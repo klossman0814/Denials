@@ -1,5 +1,6 @@
 const { Op, fn, col, literal } = require('sequelize');
 const { DenialReason, Claim, ClaimLine, RemittanceLine, Remittance } = require('../models');
+const cache = require('../utils/queryCache');
 
 // CAS reason code descriptions (industry-standard)
 const CAS_DESCRIPTIONS = {
@@ -49,6 +50,9 @@ function getReasonDescription(denialCode, existingDescription) {
 exports.listDenials = async (req, res, next) => {
   try {
     const { page = 1, limit = 25, search, denial_code, payer, status, dateFrom, dateTo } = req.query;
+    const cacheKey = `denials:${page}:${limit}:${search || ''}:${denial_code || ''}:${payer || ''}:${status || ''}:${dateFrom || ''}:${dateTo || ''}`;
+    const cached = await cache.get(cacheKey);
+    if (cached) return res.json(cached);
     const offset = (parseInt(page) - 1) * parseInt(limit);
 
     const where = {};
@@ -81,31 +85,35 @@ exports.listDenials = async (req, res, next) => {
       remittanceInclude.required = true;
     }
 
+    const includeList = [
+      {
+        model: Claim,
+        where: Object.keys(claimWhere).length ? claimWhere : undefined,
+        attributes: [
+          'id', 'claim_id', 'patient_last_name', 'patient_first_name',
+          'patient_dob', 'subscriber_id', 'payer_name', 'provider_name',
+          'provider_npi', 'total_charge', 'service_date_start', 'service_date_end', 'status',
+        ],
+        required: true,
+      },
+      {
+        model: ClaimLine,
+        attributes: ['procedure_code', 'service_date'],
+        required: false,
+      },
+      {
+        model: RemittanceLine,
+        attributes: ['procedure_code', 'service_date'],
+        required: false,
+      },
+    ];
+    if (dateFrom || dateTo) {
+      includeList.unshift(remittanceInclude);
+    }
+
     const { rows, count } = await DenialReason.findAndCountAll({
       where,
-      include: [
-        remittanceInclude,
-        {
-          model: Claim,
-          where: Object.keys(claimWhere).length ? claimWhere : undefined,
-          attributes: [
-            'id', 'claim_id', 'patient_last_name', 'patient_first_name',
-            'patient_dob', 'subscriber_id', 'payer_name', 'provider_name',
-            'provider_npi', 'total_charge', 'service_date_start', 'service_date_end', 'status',
-          ],
-          required: true,
-        },
-        {
-          model: ClaimLine,
-          attributes: ['procedure_code', 'service_date'],
-          required: false,
-        },
-        {
-          model: RemittanceLine,
-          attributes: ['procedure_code', 'service_date'],
-          required: false,
-        },
-      ],
+      include: includeList,
       order: [['created_at', 'DESC']],
       limit: parseInt(limit),
       offset,
@@ -200,6 +208,7 @@ exports.listDenials = async (req, res, next) => {
       totalPages: Math.ceil(count / parseInt(limit)),
       summary,
     });
+    await cache.set(cacheKey, { denials, total: count, page: parseInt(page), totalPages: Math.ceil(count / parseInt(limit)), summary }, 300000);
   } catch (error) {
     next(error);
   }
