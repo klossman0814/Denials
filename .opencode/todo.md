@@ -69,5 +69,5 @@
 - Backend: 33 source files, 6 models, 5 route modules, 2 EDI parsers, 3 services
 - Frontend: 32 source files, 6 pages, 5 chart components, 3 layout components
 - Tests: 12/12 parser tests passing; 4 integration tests need PostgreSQL
-- Docker: 3-service Compose (db:5441, backend:3000, frontend:5173)
+- Docker: 3-service Compose (db:5442, backend:3003, frontend:5404)
 - Build: Frontend builds successfully to dist/

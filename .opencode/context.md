@@ -10,7 +10,7 @@
 ## Project Type
 - Application: Full-stack Insurance Denials Management System
 - Architecture: Monolithic Express API + React SPA
-- Database: PostgreSQL 15 (port 5441)
+- Database: PostgreSQL 15 (port 5442)
 - Container: Docker Compose (3 services: db, backend, frontend)
 
 ## Structure
@@ -38,5 +38,5 @@
 ## Notes
 - Integration tests require PostgreSQL (run via Docker Compose)
 - Default admin: admin/admin123
-- Database port: 5441 (non-standard)
+- Database port: 5442 (non-standard)
 - EDI parsers use state-machine approach, tested with 12 unit tests
