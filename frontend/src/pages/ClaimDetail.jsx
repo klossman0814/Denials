@@ -88,6 +88,7 @@ export default function ClaimDetail() {
 
       {/* Summary stat cards */}
       <div className="stat-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}>
+        <div className="card stat-card">
           <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Payer</div>
           <div style={{ fontSize: '1.25rem', fontWeight: 600 }}>{claim.payer_name || '—'}</div>
           <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>ID: {claim.payer_id || '—'} | Filing: {claim.claim_filing_type || '—'}</div>
