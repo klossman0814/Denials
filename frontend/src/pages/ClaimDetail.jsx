@@ -39,14 +39,55 @@ export default function ClaimDetail() {
         <StatusBadge status={claim.status} />
       </div>
 
+      {/* Patient Demographics Card */}
+      {claim.patient_first_name && (
+        <div className="card" style={{ marginBottom: '1.5rem', borderLeft: '4px solid var(--color-primary)' }}>
+          <div className="card-header" style={{ fontSize: '0.85rem' }}>Patient Demographics</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '0.75rem', padding: '0.75rem 1rem', fontSize: '0.85rem' }}>
+            <div>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Full Name</div>
+              <div style={{ fontWeight: 600 }}>
+                {[claim.patient_first_name, claim.patient_middle_initial, claim.patient_last_name].filter(Boolean).join(' ') || '—'}
+                {claim.patient_suffix ? `, ${claim.patient_suffix}` : ''}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Date of Birth</div>
+              <div style={{ fontWeight: 600 }}>{claim.patient_dob ? dateFmt(claim.patient_dob) : '—'}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Gender</div>
+              <div style={{ fontWeight: 600 }}>{claim.patient_gender === 'M' ? 'Male' : claim.patient_gender === 'F' ? 'Female' : claim.patient_gender || '—'}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Member ID</div>
+              <div style={{ fontWeight: 600, fontFamily: 'monospace' }}>{claim.patient_member_id || '—'}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Relationship to Subscriber</div>
+              <div style={{ fontWeight: 600 }}>{claim.patient_relationship_code || '—'}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Mailing Address</div>
+              <div style={{ fontWeight: 600 }}>
+                {[claim.patient_address1, claim.patient_address2].filter(Boolean).join(', ') || '—'}
+                {claim.patient_city ? <><br />{claim.patient_city}{claim.patient_state ? `, ${claim.patient_state}` : ''} {claim.patient_zip || ''}</> : ''}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Subscriber</div>
+              <div style={{ fontWeight: 600 }}>
+                {[claim.subscriber_first_name, claim.subscriber_middle_initial, claim.subscriber_last_name].filter(Boolean).join(' ') || '—'}
+                {claim.subscriber_suffix ? `, ${claim.subscriber_suffix}` : ''}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>ID: {claim.subscriber_id || '—'} | Group: {claim.subscriber_group_number || '—'}</div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Summary stat cards */}
       <div className="stat-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}>
-        <div className="card stat-card">
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Patient</div>
-          <div style={{ fontSize: '1.25rem', fontWeight: 600 }}>{`${claim.patient_first_name || ''} ${claim.patient_last_name || ''}`.trim() || '—'}</div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{claim.patient_dob ? dateFmt(claim.patient_dob) : ''} {claim.patient_gender || ''}</div>
-        </div>
-        <div className="card stat-card">
           <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Payer</div>
           <div style={{ fontSize: '1.25rem', fontWeight: 600 }}>{claim.payer_name || '—'}</div>
           <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>ID: {claim.payer_id || '—'} | Filing: {claim.claim_filing_type || '—'}</div>
