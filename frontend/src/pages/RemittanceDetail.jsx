@@ -62,6 +62,44 @@ export default function RemittanceDetail() {
             <StatusBadge status={remit.status} />
           </div>
 
+          {/* Patient Demographics Card (if linked to a claim) */}
+          {remit.Claim && (
+            <div style={{ padding: '0.75rem', borderBottom: '1px solid var(--border-color)', background: 'var(--bg-hover)' }}>
+              <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>Patient Demographics</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '0.5rem', fontSize: '0.85rem' }}>
+                <div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Name</div>
+                  <div style={{ fontWeight: 600 }}>{[remit.Claim.patient_first_name, remit.Claim.patient_middle_initial, remit.Claim.patient_last_name].filter(Boolean).join(' ') || '—'}{remit.Claim.patient_suffix ? `, ${remit.Claim.patient_suffix}` : ''}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>DOB / Gender</div>
+                  <div style={{ fontWeight: 600 }}>{remit.Claim.patient_dob ? dateFmt(remit.Claim.patient_dob) : '—'} {remit.Claim.patient_gender || ''}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Member ID</div>
+                  <div style={{ fontWeight: 600, fontFamily: 'monospace' }}>{remit.Claim.patient_member_id || '—'}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Address</div>
+                  <div style={{ fontWeight: 600 }}>
+                    {remit.Claim.patient_address1 ? `${remit.Claim.patient_address1}${remit.Claim.patient_city ? `, ${remit.Claim.patient_city}` : ''}${remit.Claim.patient_state ? ` ${remit.Claim.patient_state}` : ''}` : '—'}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Subscriber</div>
+                  <div style={{ fontWeight: 600 }}>
+                    {[remit.Claim.subscriber_first_name, remit.Claim.subscriber_middle_initial, remit.Claim.subscriber_last_name].filter(Boolean).join(' ') || '—'}
+                    {remit.Claim.subscriber_id ? ` (${remit.Claim.subscriber_id})` : ''}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}>Group</div>
+                  <div style={{ fontWeight: 600, fontFamily: 'monospace' }}>{remit.Claim.subscriber_group_number || '—'}</div>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '0.75rem', padding: '0.75rem', borderBottom: '1px solid var(--border-color)' }}>
             <div><strong>Patient:</strong> {`${remit.patient_first_name || ''} ${remit.patient_last_name || ''}`.trim() || '—'}</div>
             <div><strong>Member ID:</strong> {remit.patient_member_id || '—'}</div>

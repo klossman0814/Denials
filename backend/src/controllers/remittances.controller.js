@@ -1,5 +1,5 @@
 const { Op } = require('sequelize');
-const { RemittanceFile, Remittance, RemittanceLine, DenialReason, UploadedFile } = require('../models');
+const { RemittanceFile, Remittance, RemittanceLine, DenialReason, UploadedFile, Claim } = require('../models');
 
 exports.listFiles = async (req, res, next) => {
   try {
@@ -44,6 +44,14 @@ exports.getFile = async (req, res, next) => {
         {
           model: Remittance,
           include: [
+            { model: Claim, attributes: [
+              'id', 'claim_id', 'patient_first_name', 'patient_middle_initial', 'patient_last_name',
+              'patient_suffix', 'patient_dob', 'patient_gender', 'patient_member_id',
+              'patient_relationship_code', 'patient_address1', 'patient_address2',
+              'patient_city', 'patient_state', 'patient_zip',
+              'subscriber_first_name', 'subscriber_middle_initial', 'subscriber_last_name',
+              'subscriber_suffix', 'subscriber_id', 'subscriber_group_number',
+            ]},
             { model: DenialReason },
             {
               model: RemittanceLine,
