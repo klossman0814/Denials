@@ -4,7 +4,7 @@ WORKDIR /app/backend
 COPY backend/package*.json ./
 RUN npm ci --only=production
 COPY backend/src ./src
-EXPOSE 3000
+EXPOSE 3003
 CMD ["node", "src/server.js"]
 
 # ===== Frontend (dev) =====
@@ -13,7 +13,7 @@ WORKDIR /app/frontend
 COPY frontend/package*.json ./
 RUN npm ci
 COPY frontend/ ./
-EXPOSE 5173
+EXPOSE 5404
 CMD ["npx", "vite", "--host", "0.0.0.0"]
 
 # ===== Frontend (build only) =====

@@ -7,7 +7,7 @@ A full-stack web application for parsing EDI 837/835 healthcare files, managing 
 ```
 ┌──────────────┐     ┌──────────────┐     ┌───────────┐
 │  React SPA   │────▶│  Express API │────▶│ PostgreSQL│
-│  (Vite/5173) │     │  (:3000)     │     │  (:5441)  │
+│  (Vite/5404) │     │  (:3003)     │     │  (:5442)  │
 └──────────────┘     └──────┬───────┘     └───────────┘
                             │
                      ┌──────┴───────┐
@@ -37,14 +37,14 @@ A full-stack web application for parsing EDI 837/835 healthcare files, managing 
 docker compose up -d
 ```
 
-The app will be available at `http://localhost` (ports: frontend=5173, backend=3000, db=5441).
+The app will be available at `http://localhost` (ports: frontend=5404, backend=3003, db=5442).
 
 ## Manual Setup
 
 ### 1. Database
 
 ```bash
-createdb -p 5441 -U denials_user denials_db
+createdb -p 5442 -U denials_user denials_db
 ```
 
 ### 2. Backend
@@ -53,7 +53,7 @@ createdb -p 5441 -U denials_user denials_db
 cd backend
 cp .env.example .env   # edit credentials as needed
 npm install
-node src/server.js     # starts on :3000
+node src/server.js     # starts on :3003
 ```
 
 ### 3. Frontend
@@ -61,7 +61,7 @@ node src/server.js     # starts on :3000
 ```bash
 cd frontend
 npm install
-npx vite               # starts on :5173
+npx vite               # starts on :5404
 ```
 
 ### 4. Seed Admin User
@@ -148,9 +148,9 @@ Tests cover: EDI 837 parser, EDI 835 parser, auth, upload, claims, and dashboard
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `PORT` | `3000` | Backend port |
+| `PORT` | `3003` | Backend port |
 | `DB_HOST` | `localhost` | PostgreSQL host |
-| `DB_PORT` | `5441` | PostgreSQL port |
+| `DB_PORT` | `5442` | PostgreSQL port |
 | `DB_NAME` | `denials_db` | Database name |
 | `DB_USER` | `denials_user` | Database user |
 | `DB_PASS` | `denials_pass` | Database password |

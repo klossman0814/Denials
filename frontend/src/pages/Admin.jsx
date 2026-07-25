@@ -241,7 +241,7 @@ export default function Admin() {
           {[
             { label: 'Total Users', value: users.length },
             { label: 'Total Files Uploaded', value: files.length },
-            { label: 'Database', value: 'PostgreSQL :5441' },
+            { label: 'Database', value: 'PostgreSQL :5442' },
             { label: 'Environment', value: import.meta.env.VITE_NODE_ENV || 'development' },
           ].map((s, i) => (
             <div key={i} className="card stat-card">

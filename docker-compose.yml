@@ -6,7 +6,7 @@ services:
       POSTGRES_PASSWORD: denials_pass
       POSTGRES_DB: denials_db
     ports:
-      - "5441:5432"
+      - "5442:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -32,10 +32,10 @@ services:
       context: .
       target: backend
     ports:
-      - "3000:3000"
+      - "3003:3003"
     environment:
       NODE_ENV: development
-      PORT: 3000
+      PORT: 3003
       DB_HOST: db
       DB_PORT: 5432
       DB_NAME: denials_db
@@ -71,10 +71,10 @@ services:
       context: .
       target: frontend-dev
     ports:
-      - "5173:5173"
+      - "5404:5404"
     environment:
-      VITE_API_URL: http://localhost:3000/api
-      VITE_PROXY_TARGET: http://backend:3000
+      VITE_API_URL: http://localhost:3003/api
+      VITE_PROXY_TARGET: http://backend:3003
     depends_on:
       - backend
     volumes:

@@ -36,7 +36,7 @@ describe('Admin .env Sync Logic', () => {
 
     it('should replace UPLOAD_DIR_835 in existing .env', () => {
       fs.writeFileSync(tmpEnv, [
-        'PORT=3000',
+        'PORT=3003',
         'UPLOAD_DIR_837=./data/837',
         'UPLOAD_DIR_835=./data/835',
       ].join(os.EOL) + os.EOL);
