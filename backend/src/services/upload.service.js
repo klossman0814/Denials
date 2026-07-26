@@ -25,6 +25,10 @@ class UploadService {
   async processFile(filePath, fileType, uploadedBy = null) {
     const filename = path.basename(filePath);
     const stats = fs.statSync(filePath);
+    const sourceRoot = path.resolve(fileType === '837' ? config.upload.dir837 : config.upload.dir835);
+    const fileDir = path.dirname(filePath);
+    const relDir = path.relative(sourceRoot, fileDir);
+    if (relDir) logger.info(`File in subdirectory: ${path.join(relDir, filename)}`);
 
     const content = fs.readFileSync(filePath, 'utf8');
     const contentHash = crypto.createHash('sha256').update(content, 'utf8').digest('hex');
@@ -38,11 +42,12 @@ class UploadService {
       try {
         const dupDir = fileType === '837' ? config.upload.duplicatesDir837 : config.upload.duplicatesDir835;
         if (dupDir) {
-          const absDupDir = path.resolve(dupDir);
+          const absDupDir = path.resolve(dupDir, relDir);
           fs.mkdirSync(absDupDir, { recursive: true });
           const destPath = path.join(absDupDir, filename);
           fs.copyFileSync(filePath, destPath);
           fs.unlinkSync(filePath);
+          this._cleanupEmptyDirs(fileDir, sourceRoot);
           logger.info(`Moved duplicate ${filename} to ${absDupDir}`);
         }
       } catch (moveErr) {
@@ -82,7 +87,7 @@ class UploadService {
       try {
         const processedDir = fileType === '837' ? config.upload.processedDir837 : config.upload.processedDir835;
         if (processedDir) {
-          const absProcessed = path.resolve(processedDir);
+          const absProcessed = path.resolve(processedDir, relDir);
           fs.mkdirSync(absProcessed, { recursive: true });
           let destFilename = filename;
           if (supersededFile) {
@@ -93,6 +98,7 @@ class UploadService {
           const destPath = path.join(absProcessed, destFilename);
           fs.copyFileSync(filePath, destPath);
           fs.unlinkSync(filePath);
+          this._cleanupEmptyDirs(fileDir, sourceRoot);
           logger.info(`Moved ${filename} to ${absProcessed}${supersededFile ? ' (corrected)' : ''}`);
         }
       } catch (moveErr) {
@@ -530,6 +536,28 @@ class UploadService {
       },
       order: [['uploaded_at', 'DESC']],
     });
+  }
+
+  _cleanupEmptyDirs(dir, stopAtRoot) {
+    try {
+      let current = dir;
+      while (current !== stopAtRoot && !path.relative(stopAtRoot, current).startsWith('..')) {
+        try {
+          const entries = fs.readdirSync(current);
+          if (entries.length === 0) {
+            fs.rmdirSync(current);
+            logger.debug(`Removed empty directory: ${current}`);
+            current = path.dirname(current);
+          } else {
+            break;
+          }
+        } catch {
+          break;
+        }
+      }
+    } catch (err) {
+      logger.warn(`Directory cleanup error: ${err.message}`);
+    }
   }
 
   async _markSupersededRecords(fileType, supersededFileId, newFileId) {
