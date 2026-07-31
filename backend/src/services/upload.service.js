@@ -542,6 +542,21 @@ class UploadService {
         await DenialReason.bulkCreate(lineDenialRecords);
         count += lineDenialRecords.length;
       }
+
+      // Save remittance-level LQ codes (reuse in-order createdRemits)
+      const remitLqRecords = [];
+      for (let i = 0; i < createdRemits.length; i++) {
+        const parsedRemit = remittances[i];
+        if (parsedRemit.lq_codes) {
+          for (const lq of parsedRemit.lq_codes) {
+            remitLqRecords.push({ ...lq, remittance_id: createdRemits[i].id });
+          }
+        }
+      }
+      if (remitLqRecords.length > 0) {
+        await LqCode.bulkCreate(remitLqRecords);
+        count += remitLqRecords.length;
+      }
     }
 
     // Save provider-level adjustments (PLB segment)
@@ -568,24 +583,6 @@ class UploadService {
     if (lq_codes && lq_codes.length > 0) {
       await LqCode.bulkCreate(lq_codes.map(lq => ({ ...lq, remittance_file_id: remittanceFile.id })));
       count += lq_codes.length;
-    }
-
-    // Save remittance-level LQ codes
-    if (remittanceRecords.length > 0) {
-      const createdRemits = await Remittance.findAll({ where: { remittance_file_id: remittanceFile.id } });
-      const remitLqRecords = [];
-      for (let i = 0; i < createdRemits.length; i++) {
-        const parsedRemit = remittances[i];
-        if (parsedRemit.lq_codes) {
-          for (const lq of parsedRemit.lq_codes) {
-            remitLqRecords.push({ ...lq, remittance_id: createdRemits[i].id });
-          }
-        }
-      }
-      if (remitLqRecords.length > 0) {
-        await LqCode.bulkCreate(remitLqRecords);
-        count += remitLqRecords.length;
-      }
     }
 
     return { count };

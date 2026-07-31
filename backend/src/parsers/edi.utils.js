@@ -19,10 +19,18 @@ function parseEDIDate(dateStr) {
   if (cleaned.length < 8) return null;
   // Standard EDI date: CCYYMMDD (8 chars)
   if (cleaned.length === 8) {
+    const y = parseInt(cleaned.substring(0, 4), 10);
+    const m = parseInt(cleaned.substring(4, 6), 10);
+    const d = parseInt(cleaned.substring(6, 8), 10);
+    if (!y || y < 1900 || y > 2200 || !m || m < 1 || m > 12 || !d || d < 1 || d > 31) return null;
     return `${cleaned.substring(0, 4)}-${cleaned.substring(4, 6)}-${cleaned.substring(6, 8)}`;
   }
   // EDI date with time suffix (e.g. CCYYMMDDHHMM) — take only the date portion
   if (cleaned.length >= 8) {
+    const y = parseInt(cleaned.substring(0, 4), 10);
+    const m = parseInt(cleaned.substring(4, 6), 10);
+    const d = parseInt(cleaned.substring(6, 8), 10);
+    if (!y || y < 1900 || y > 2200 || !m || m < 1 || m > 12 || !d || d < 1 || d > 31) return null;
     return `${cleaned.substring(0, 4)}-${cleaned.substring(4, 6)}-${cleaned.substring(6, 8)}`;
   }
   return null;
@@ -31,7 +39,8 @@ function parseEDIDate(dateStr) {
 function parseEDIAmount(amountStr) {
   if (!amountStr) return 0;
   const clean = amountStr.replace(/[^0-9.]/g, '');
-  return parseFloat(clean) || 0;
+  const n = parseFloat(clean);
+  return Number.isFinite(n) ? n : 0;
 }
 
 const REF_QUALIFIER_DESCRIPTIONS = {

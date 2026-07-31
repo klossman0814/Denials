@@ -569,10 +569,11 @@ function parse835(content) {
       case 'TS3': {
         phase = 5;
         const fiscalPeriod = (elements[2] || '').trim();
+        const fpDate = parseEDIDate(fiscalPeriod);
         provider_summaries.push({
           provider_identifier: elements[1] || '',
-          fiscal_period_start: fiscalPeriod.length >= 8 ? `${fiscalPeriod.slice(0, 4)}-${fiscalPeriod.slice(4, 6)}-01` : null,
-          fiscal_period_end: fiscalPeriod.length >= 8 ? `${fiscalPeriod.slice(0, 4)}-${fiscalPeriod.slice(4, 6)}-${String(Math.min(28, parseInt(fiscalPeriod.slice(6, 8), 10) || 28)).padStart(2, '0')}` : null,
+          fiscal_period_start: fpDate ? `${fpDate.slice(0, 7)}-01` : null,
+          fiscal_period_end: fpDate ? `${fpDate.slice(0, 7)}-${String(Math.min(28, parseInt(fpDate.slice(8, 10), 10) || 28)).padStart(2, '0')}` : null,
           total_claim_count: parseInt(elements[3], 10) || 0,
           total_charge_amount: parseEDIAmount(elements[5]),
           total_payment_amount: parseEDIAmount(elements[7]),
