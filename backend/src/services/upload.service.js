@@ -8,8 +8,10 @@ const {
   RemittanceLine, DenialReason,
   ClaimDiagnosis, ClaimReference, ClaimAmount, ClaimCondition,
   ClaimReportType, ClaimFileInfo, ClaimToothInfo,
+  ClaimNote, ClaimQuantity, ClaimMeasurement, ClaimAdjustment, ClaimTransaction,
   RemittanceReference, RemittanceAmount,
   RemittanceInpatient, RemittanceOutpatient, ProviderAdjustment,
+  ProviderSummary, LqCode,
 } = require('../models');
 const { parse837 } = require('../parsers/edi837.parser');
 const { parse835 } = require('../parsers/edi835.parser');
@@ -308,13 +310,34 @@ class UploadService {
       if (condRecords.length > 0) { await ClaimCondition.bulkCreate(condRecords); count += condRecords.length; }
       if (rtRecords.length > 0) { await ClaimReportType.bulkCreate(rtRecords); count += rtRecords.length; }
       if (fiRecords.length > 0) { await ClaimFileInfo.bulkCreate(fiRecords); count += fiRecords.length; }
+
+      // Save new claim-level segment data (NTE, QTY, MEA, CAS, PTP)
+      const noteRecords = [];
+      const qtyRecords = [];
+      const measRecords = [];
+      const adjRecords = [];
+      const txnRecords = [];
+      for (let i = 0; i < createdClaims.length; i++) {
+        const parsedClaim = claims[i];
+        const claimId = createdClaims[i].id;
+        if (parsedClaim.notes) for (const n of parsedClaim.notes) noteRecords.push({ ...n, claim_id: claimId });
+        if (parsedClaim.quantities) for (const q of parsedClaim.quantities) qtyRecords.push({ ...q, claim_id: claimId });
+        if (parsedClaim.measurements) for (const m of parsedClaim.measurements) measRecords.push({ ...m, claim_id: claimId });
+        if (parsedClaim.adjustments) for (const a of parsedClaim.adjustments) adjRecords.push({ ...a, claim_id: claimId });
+        if (parsedClaim.transactions) for (const t of parsedClaim.transactions) txnRecords.push({ ...t, claim_id: claimId });
+      }
+      if (noteRecords.length > 0) { await ClaimNote.bulkCreate(noteRecords); count += noteRecords.length; }
+      if (qtyRecords.length > 0) { await ClaimQuantity.bulkCreate(qtyRecords); count += qtyRecords.length; }
+      if (measRecords.length > 0) { await ClaimMeasurement.bulkCreate(measRecords); count += measRecords.length; }
+      if (adjRecords.length > 0) { await ClaimAdjustment.bulkCreate(adjRecords); count += adjRecords.length; }
+      if (txnRecords.length > 0) { await ClaimTransaction.bulkCreate(txnRecords); count += txnRecords.length; }
     }
 
     return { count };
   }
 
   async _process835(content, fileId) {
-    const { metadata, file: fileMeta, remittances, provider_adjustments } = parse835(content);
+    const { metadata, file: fileMeta, remittances, provider_adjustments, provider_summaries, lq_codes } = parse835(content);
     let count = 0;
 
     // Flatten nested payer/payee objects and include envelope metadata
@@ -325,6 +348,10 @@ class UploadService {
       trace_number: fileMeta.trace_number,
       sender_bank_id: fileMeta.sender_bank_id,
       sender_account: fileMeta.sender_account,
+      receiver_bank_id: fileMeta.receiver_bank_id || '',
+      receiver_account: fileMeta.receiver_account || '',
+      payment_format_code: fileMeta.payment_format_code || '',
+      payment_format_desc: fileMeta.payment_format_desc || '',
       payer_name: fileMeta.payer_name,
       payer_id_code: fileMeta.payer_id_code,
       payee_name: fileMeta.payee_name,
@@ -340,6 +367,8 @@ class UploadService {
       payer_contact_name: fileMeta.payer?.contact?.name || '',
       payer_contact_phone: fileMeta.payer?.contact?.phone || '',
       payer_contact_email: fileMeta.payer?.contact?.email || '',
+      payer_contact_fax: fileMeta.payer?.contact?.fax || '',
+      payer_contact_url: fileMeta.payer?.contact?.url || '',
       // Flatten payee address/contact
       payee_address1: fileMeta.payee?.address?.address1 || '',
       payee_address2: fileMeta.payee?.address?.address2 || '',
@@ -349,6 +378,8 @@ class UploadService {
       payee_contact_name: fileMeta.payee?.contact?.name || '',
       payee_contact_phone: fileMeta.payee?.contact?.phone || '',
       payee_contact_email: fileMeta.payee?.contact?.email || '',
+      payee_contact_fax: fileMeta.payee?.contact?.fax || '',
+      payee_contact_url: fileMeta.payee?.contact?.url || '',
       // Envelope metadata
       sender_id: metadata.sender_id || '',
       receiver_id: metadata.receiver_id || '',
@@ -402,7 +433,7 @@ class UploadService {
 
       // Store service lines
       for (const line of (service_lines || [])) {
-        const { denial_reasons: lineDenials, quantity_adjustments, ...lineFields } = line;
+        const { denial_reasons: lineDenials, quantity_adjustments, refs: lineRefs, ...lineFields } = line;
         lineDenialBatches.push({
           lineData: lineFields,
           denials: lineDenials || [],
@@ -519,6 +550,40 @@ class UploadService {
       }));
       await ProviderAdjustment.bulkCreate(paRecords);
       count += paRecords.length;
+    }
+
+    // Save provider summaries (TS3/TS2 segments)
+    if (provider_summaries && provider_summaries.length > 0) {
+      const psRecords = provider_summaries.map(ps => ({
+        ...ps,
+        remittance_file_id: remittanceFile.id,
+      }));
+      await ProviderSummary.bulkCreate(psRecords);
+      count += psRecords.length;
+    }
+
+    // Save file-level LQ codes
+    if (lq_codes && lq_codes.length > 0) {
+      await LqCode.bulkCreate(lq_codes.map(lq => ({ ...lq, remittance_file_id: remittanceFile.id })));
+      count += lq_codes.length;
+    }
+
+    // Save remittance-level LQ codes
+    if (remittanceRecords.length > 0) {
+      const createdRemits = await Remittance.findAll({ where: { remittance_file_id: remittanceFile.id } });
+      const remitLqRecords = [];
+      for (let i = 0; i < createdRemits.length; i++) {
+        const parsedRemit = remittances[i];
+        if (parsedRemit.lq_codes) {
+          for (const lq of parsedRemit.lq_codes) {
+            remitLqRecords.push({ ...lq, remittance_id: createdRemits[i].id });
+          }
+        }
+      }
+      if (remitLqRecords.length > 0) {
+        await LqCode.bulkCreate(remitLqRecords);
+        count += remitLqRecords.length;
+      }
     }
 
     return { count };

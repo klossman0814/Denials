@@ -9,6 +9,10 @@ const RemittanceFile = sequelize.define('RemittanceFile', {
   trace_number: { type: DataTypes.STRING(50) },
   sender_bank_id: { type: DataTypes.STRING(20) },
   sender_account: { type: DataTypes.STRING(30) },
+  receiver_bank_id: { type: DataTypes.STRING(20) },
+  receiver_account: { type: DataTypes.STRING(30) },
+  payment_format_code: { type: DataTypes.STRING(5) },
+  payment_format_desc: { type: DataTypes.STRING(50) },
   payer_name: { type: DataTypes.STRING(200) },
   payer_id_code: { type: DataTypes.STRING(50) },
   payee_name: { type: DataTypes.STRING(200) },
@@ -25,6 +29,8 @@ const RemittanceFile = sequelize.define('RemittanceFile', {
   payer_contact_name: { type: DataTypes.STRING(100) },
   payer_contact_phone: { type: DataTypes.STRING(30) },
   payer_contact_email: { type: DataTypes.STRING(100) },
+  payer_contact_fax: { type: DataTypes.STRING(30) },
+  payer_contact_url: { type: DataTypes.STRING(200) },
   // Payee address (N3/N4 under N1*PE)
   payee_address1: { type: DataTypes.STRING(200) },
   payee_address2: { type: DataTypes.STRING(200) },
@@ -35,6 +41,8 @@ const RemittanceFile = sequelize.define('RemittanceFile', {
   payee_contact_name: { type: DataTypes.STRING(100) },
   payee_contact_phone: { type: DataTypes.STRING(30) },
   payee_contact_email: { type: DataTypes.STRING(100) },
+  payee_contact_fax: { type: DataTypes.STRING(30) },
+  payee_contact_url: { type: DataTypes.STRING(200) },
   // ISA/GS/ST envelope metadata
   sender_id: { type: DataTypes.STRING(50) },
   receiver_id: { type: DataTypes.STRING(50) },

@@ -21,6 +21,9 @@ function parse837(content) {
   let patient = {};
   let currentClaim = null;
   let currentLine = null;
+  let pendingPayer = null; // NM1*PR seen before CLM (primary payer)
+  let submitterInfo = {};  // NM1*41 submitter
+  let receiverInfo = {};   // NM1*40 receiver
 
   // Helper: get context by HL code
   function getContext(code) {
@@ -235,7 +238,18 @@ function parse837(content) {
             if (currentClaim) {
               currentClaim.payer_name = `${first} ${last}`.trim();
               currentClaim.payer_id = idCode || '';
+            } else {
+              // Primary payer seen before CLM — store for merge at claim creation
+              pendingPayer = { name: `${first} ${last}`.trim(), id: idCode || '' };
             }
+            break;
+          case '41': // Submitter (file level)
+            submitterInfo.name = `${first} ${last}`.trim();
+            submitterInfo.id = idCode || '';
+            break;
+          case '40': // Receiver (file level)
+            receiverInfo.name = `${first} ${last}`.trim();
+            receiverInfo.id = idCode || '';
             break;
         }
         break;
@@ -325,6 +339,9 @@ function parse837(content) {
           total_charge: parseEDIAmount(elements[2]),
           claim_filing_type: subContext.claim_filing_type || '',
           pos_code: (getSubElements(elements[5] || '')[0] || '').trim(),
+          // Primary payer from pre-CLM NM1*PR
+          primary_payer_name: pendingPayer?.name || '',
+          primary_payer_id: pendingPayer?.id || '',
 
           // Patient (fall back to subscriber when no separate HL*23 patient level)
           patient_first_name: patContext.first_name || subContext.first_name || '',
@@ -649,6 +666,10 @@ function parse837(content) {
         }
         currentLine.charge_amount = parseEDIAmount(elements[2]);
         currentLine.unit_count = parseEDIAmount(elements[4]);
+        // SV105 facility code / POS, SV106 type of service, SV103 unit basis
+        currentLine.facility_code = (elements[5] || '').trim();
+        currentLine.type_of_service = (elements[6] || '').trim();
+        currentLine.unit_basis = (elements[3] || '').trim();
 
         // Diagnosis code pointers (e.g., "1:2:3")
         if (elements[7]) {
@@ -723,6 +744,66 @@ function parse837(content) {
         break;
       }
 
+      // ===== ADDITIONAL CLAIM-LEVEL SEGMENTS =====
+      case 'NTE': { // Notes
+        if (currentClaim) {
+          currentClaim.notes = currentClaim.notes || [];
+          currentClaim.notes.push({
+            note_reference_code: (elements[1] || '').trim(),
+            note_text: (elements[2] || '').trim(),
+          });
+        }
+        break;
+      }
+      case 'QTY': { // Quantities
+        if (currentClaim) {
+          currentClaim.quantities = currentClaim.quantities || [];
+          currentClaim.quantities.push({
+            qualifier: (elements[1] || '').trim(),
+            value: parseEDIAmount(elements[2]),
+          });
+        }
+        break;
+      }
+      case 'MEA': { // Measurements
+        if (currentClaim) {
+          currentClaim.measurements = currentClaim.measurements || [];
+          currentClaim.measurements.push({
+            measurement_reference: (elements[1] || '').trim(),
+            qualifier: (elements[2] || '').trim(),
+            value: parseEDIAmount(elements[3]),
+            unit: (elements[4] || '').trim(),
+          });
+        }
+        break;
+      }
+      case 'CAS': { // Claim-level adjustments
+        if (currentClaim) {
+          currentClaim.adjustments = currentClaim.adjustments || [];
+          const casGroup = (elements[1] || '').trim();
+          for (let j = 2; j + 2 < elements.length; j += 3) {
+            currentClaim.adjustments.push({
+              group_code: casGroup,
+              reason_code: (elements[j] || '').trim(),
+              amount: parseEDIAmount(elements[j + 1]),
+              quantity: parseEDIAmount(elements[j + 2]),
+            });
+          }
+        }
+        break;
+      }
+      case 'PTP': { // Patient transaction
+        if (currentClaim) {
+          currentClaim.transactions = currentClaim.transactions || [];
+          currentClaim.transactions.push({
+            purpose_code: (elements[1] || '').trim(),
+            reference_id: (elements[2] || '').trim(),
+            date: parseEDIDate(elements[3]),
+          });
+        }
+        break;
+      }
+
       // ===== TRAILERS =====
       case 'SE':
         finalizeClaim();
@@ -742,7 +823,7 @@ function parse837(content) {
   // Finalize any remaining claim
   finalizeClaim();
 
-  return { metadata, claims };
+  return { metadata, claims, submitter: submitterInfo, receiver: receiverInfo };
 }
 
 module.exports = { parse837 };

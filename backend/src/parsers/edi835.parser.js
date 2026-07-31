@@ -76,6 +76,8 @@ function parse835(content) {
   const file = createFile();
   const remittances = [];
   const provider_adjustments = [];
+  const provider_summaries = [];
+  const file_lq_codes = [];
   let phase = 0; // 0=envelope, 1=header, 2=payer, 3=payee, 4=claim, 5=summary, 6=trailer
   let loopContext = null; // { type: 'PR'|'PE' }
 
@@ -128,6 +130,8 @@ function parse835(content) {
       payer_claim_id: '',
       total_charge: 0,
       total_paid: 0,
+      patient_responsibility: 0,
+      amount_paid_other_payer: 0,
       adjustment_amount: 0,
       status: '',
       claim_status_code: '',
@@ -135,11 +139,15 @@ function parse835(content) {
       remittance_date: null,
       patient_name: '',
       patient_first_name: '',
+      patient_middle_initial: '',
       patient_last_name: '',
+      patient_suffix: '',
       patient_member_id: '',
       subscriber_id: '',
       subscriber_first_name: '',
+      subscriber_middle_initial: '',
       subscriber_last_name: '',
+      subscriber_suffix: '',
       rendering_provider_name: '',
       rendering_provider_npi: '',
       billing_provider_name: '',
@@ -152,6 +160,7 @@ function parse835(content) {
       patient_gender: '',
       refs: [],
       amts: [],
+      lq_codes: [],
       denial_reasons: [],
       service_lines: [],
       patient: { first_name: '', last_name: '', member_id: '' },
@@ -178,6 +187,7 @@ function parse835(content) {
       patient_liability: 0,
       quantity_adjustments: [],
       denial_reasons: [],
+      refs: [],
     };
   }
 
@@ -221,8 +231,12 @@ function parse835(content) {
         file.total_payment = parseEDIAmount(elements[2]);
         file.credit_debit_flag = elements[3] || '';
         file.payment_method = elements[4] || '';
+        file.payment_format_code = elements[5] || '';
+        file.payment_format_desc = elements[6] || '';
         file.sender_bank_id = elements[7] || '';
+        file.receiver_bank_id = elements[8] || '';
         file.sender_account = elements[9] || '';
+        file.receiver_account = elements[10] || '';
         file.payment_date = parseEDIDate(elements[16]) || parseEDIDate(elements[14]) || null;
         phase = 1;
         resetFileContext();
@@ -288,7 +302,9 @@ function parse835(content) {
           const value = elements[j + 1] || '';
           if (qual === 'TE') target.contact.phone = value;
           else if (qual === 'EM') target.contact.email = value;
-          // FX (fax) not currently stored
+          else if (qual === 'ED') target.contact.email = target.contact.email || value;
+          else if (qual === 'FX') target.contact.fax = value;
+          else if (qual === 'UR') target.contact.url = value;
         }
         break;
       }
@@ -307,6 +323,8 @@ function parse835(content) {
           // Line-level REF — check before claim-level since line is inside a claim
           if (refQual === '6R') {
             currentLine.line_control_number = refValue;
+          } else if (refQual === 'LU') {
+            currentLine.refs.push({ qualifier: refQual, value: refValue, description: refDesc });
           }
         } else if (currentRemittance) {
           // Claim-level REFs
@@ -363,7 +381,8 @@ function parse835(content) {
         currentRemittance.payer_claim_id = clpPayerClaimId;
         currentRemittance.total_charge = clpCharge;
         currentRemittance.total_paid = clpPaid;
-        currentRemittance.adjustment_amount = parseEDIAmount(elements[5]) || 0;
+        currentRemittance.patient_responsibility = parseEDIAmount(elements[5]) || 0;
+        currentRemittance.amount_paid_other_payer = parseEDIAmount(elements[6]) || 0;
         currentRemittance.status = status;
         currentRemittance.claim_status_code = clpStatusCode;
         currentRemittance.claim_filing_type = clpFilingType;
@@ -376,12 +395,16 @@ function parse835(content) {
         const nm1Qual = elements[1] || '';
         const nm1Last = elements[3] || '';
         const nm1First = elements[4] || '';
+        const nm1Middle = elements[5] || '';
+        const nm1Suffix = elements[7] || '';
         const nm1Id = elements[9] || '';
         const nm1IdQual = (elements[8] || '').trim();
 
         if (nm1Qual === 'QC') {
           currentRemittance.patient_last_name = nm1Last;
           currentRemittance.patient_first_name = nm1First;
+          currentRemittance.patient_middle_initial = nm1Middle;
+          currentRemittance.patient_suffix = nm1Suffix;
           currentRemittance.patient_member_id = nm1Id;
           currentRemittance.patient.last_name = nm1Last;
           currentRemittance.patient.first_name = nm1First;
@@ -391,6 +414,8 @@ function parse835(content) {
           currentRemittance.subscriber.subscriber_id = nm1Id;
           currentRemittance.subscriber.last_name = nm1Last;
           currentRemittance.subscriber.first_name = nm1First;
+          currentRemittance.subscriber_middle_initial = nm1Middle;
+          currentRemittance.subscriber_suffix = nm1Suffix;
         } else if (nm1Qual === '82') {
           currentRemittance.rendering_provider_name = `${nm1First} ${nm1Last}`.trim();
           currentRemittance.rendering_provider.name = `${nm1First} ${nm1Last}`.trim();
@@ -511,7 +536,7 @@ function parse835(content) {
       case 'MOA': {
         if (!currentRemittance) break;
         const remarkCodes = [];
-        for (let j = 2; j <= 4; j++) {
+        for (let j = 2; j <= 9; j++) {
           if (elements[j]) remarkCodes.push(elements[j]);
         }
         currentRemittance.outpatient_info = {
@@ -540,6 +565,37 @@ function parse835(content) {
         break;
       }
 
+      // -- TS3/TS2: Provider Summary (Medicare/Medicaid 835s) --
+      case 'TS3': {
+        phase = 5;
+        const fiscalPeriod = (elements[2] || '').trim();
+        provider_summaries.push({
+          provider_identifier: elements[1] || '',
+          fiscal_period_start: fiscalPeriod.length >= 8 ? `${fiscalPeriod.slice(0, 4)}-${fiscalPeriod.slice(4, 6)}-01` : null,
+          fiscal_period_end: fiscalPeriod.length >= 8 ? `${fiscalPeriod.slice(0, 4)}-${fiscalPeriod.slice(4, 6)}-${String(Math.min(28, parseInt(fiscalPeriod.slice(6, 8), 10) || 28)).padStart(2, '0')}` : null,
+          total_claim_count: parseInt(elements[3], 10) || 0,
+          total_charge_amount: parseEDIAmount(elements[5]),
+          total_payment_amount: parseEDIAmount(elements[7]),
+          total_patient_responsibility: parseEDIAmount(elements[9]),
+          total_provider_adjustment: parseEDIAmount(elements[10]),
+          total_adjustment_amount: parseEDIAmount(elements[11]),
+        });
+        break;
+      }
+
+      // -- LQ: Industry/Remark Code (e.g., LQ*HE*N290 for claim remarks) --
+      case 'LQ': {
+        const lqQual = (elements[1] || '').trim();
+        const lqCode = (elements[2] || '').trim();
+        const lqDesc = (elements[3] || '').trim();
+        if (currentRemittance) {
+          currentRemittance.lq_codes.push({ qualifier: lqQual, code: lqCode, description: lqDesc });
+        } else {
+          file_lq_codes.push({ qualifier: lqQual, code: lqCode, description: lqDesc });
+        }
+        break;
+      }
+
       // -- Phase 6: Trailers --
       case 'SE': {
         finalizeClaim();
@@ -561,7 +617,7 @@ function parse835(content) {
   // Finalize any remaining claim
   finalizeClaim();
 
-  return { metadata, file, remittances, provider_adjustments };
+  return { metadata, file, remittances, provider_adjustments, provider_summaries, lq_codes: file_lq_codes };
 }
 
 module.exports = { parse835 };

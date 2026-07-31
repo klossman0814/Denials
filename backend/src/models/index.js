@@ -20,6 +20,13 @@ const RemittanceAmount = require('./RemittanceAmount');
 const RemittanceInpatient = require('./RemittanceInpatient');
 const RemittanceOutpatient = require('./RemittanceOutpatient');
 const ProviderAdjustment = require('./ProviderAdjustment');
+const ProviderSummary = require('./ProviderSummary');
+const LqCode = require('./LqCode');
+const ClaimNote = require('./ClaimNote');
+const ClaimQuantity = require('./ClaimQuantity');
+const ClaimMeasurement = require('./ClaimMeasurement');
+const ClaimAdjustment = require('./ClaimAdjustment');
+const ClaimTransaction = require('./ClaimTransaction');
 
 const models = {
   sequelize, User, UploadedFile, Claim, ClaimLine,
@@ -28,6 +35,8 @@ const models = {
   ClaimReportType, ClaimFileInfo, ClaimToothInfo,
   RemittanceReference, RemittanceAmount,
   RemittanceInpatient, RemittanceOutpatient, ProviderAdjustment,
+  ProviderSummary, LqCode,
+  ClaimNote, ClaimQuantity, ClaimMeasurement, ClaimAdjustment, ClaimTransaction,
 };
 
 User.associate?.(models);
@@ -51,5 +60,12 @@ RemittanceAmount.associate?.(models);
 RemittanceInpatient.associate?.(models);
 RemittanceOutpatient.associate?.(models);
 ProviderAdjustment.associate?.(models);
+ProviderSummary.associate?.(models);
+LqCode.associate?.(models);
+ClaimNote.associate?.(models);
+ClaimQuantity.associate?.(models);
+ClaimMeasurement.associate?.(models);
+ClaimAdjustment.associate?.(models);
+ClaimTransaction.associate?.(models);
 
 module.exports = models;

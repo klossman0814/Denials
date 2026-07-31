@@ -16,6 +16,9 @@ const ClaimLine = sequelize.define('ClaimLine', {
   oral_cavity_code: { type: DataTypes.STRING(10) },
   tooth_code: { type: DataTypes.STRING(20) },
   tooth_surface: { type: DataTypes.STRING(10) },
+  facility_code: { type: DataTypes.STRING(10) },
+  type_of_service: { type: DataTypes.STRING(10) },
+  unit_basis: { type: DataTypes.STRING(10) },
 }, {
   tableName: 'claim_lines',
   timestamps: false,

@@ -26,6 +26,8 @@ const Claim = sequelize.define('Claim', {
   subscriber_relationship_code: { type: DataTypes.STRING(5) },
   payer_name: { type: DataTypes.STRING(200) },
   payer_id: { type: DataTypes.STRING(50) },
+  primary_payer_name: { type: DataTypes.STRING(200) },
+  primary_payer_id: { type: DataTypes.STRING(50) },
   claim_filing_type: { type: DataTypes.STRING(5) },
   pos_code: { type: DataTypes.STRING(5) },
   // Billing provider
