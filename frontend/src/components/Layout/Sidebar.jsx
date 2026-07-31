@@ -10,6 +10,7 @@ const navItems = [
   { path: '/mismatches', label: 'Mismatches', icon: '⚠️' },
   { path: '/matched-claims', label: 'Matched', icon: '✅' },
   { path: '/executive-summary', label: 'Executive', icon: '📊' },
+  { path: '/denial-extract', label: 'Extract', icon: '📥' },
   { path: '/admin', label: 'Admin', icon: '⚙️', adminOnly: true },
 ];
 
