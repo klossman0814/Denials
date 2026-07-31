@@ -46,6 +46,8 @@ const Claim = sequelize.define('Claim', {
   rendering_provider_npi: { type: DataTypes.STRING(20) },
   referring_provider_name: { type: DataTypes.STRING(200) },
   referring_provider_npi: { type: DataTypes.STRING(20) },
+  provider_taxonomy: { type: DataTypes.STRING(50) },
+  other_insurance_json: { type: DataTypes.TEXT },
   attending_provider_name: { type: DataTypes.STRING(200) },
   attending_provider_npi: { type: DataTypes.STRING(20) },
   operating_provider_name: { type: DataTypes.STRING(200) },

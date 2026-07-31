@@ -143,6 +143,8 @@ class UploadService {
         status: 'submitted',
         // Pass BHT date (837 submission date) to each claim
         bht_date: metadata.bht_date ? (parseEDIDate(metadata.bht_date) || metadata.bht_date) : claimFields.bht_date || '',
+        // Serialize other_insurance array to JSON
+        other_insurance_json: claimFields.other_insurance ? JSON.stringify(claimFields.other_insurance) : null,
         // Flatten billing provider address
         provider_address1: provider_address?.address1 || '',
         provider_address2: provider_address?.address2 || '',

@@ -24,6 +24,7 @@ function parse837(content) {
   let pendingPayer = null; // NM1*PR seen before CLM (primary payer)
   let submitterInfo = {};  // NM1*41 submitter
   let receiverInfo = {};   // NM1*40 receiver
+  let pendingTaxonomy = ''; // PRV seen before CLM
 
   // Helper: get context by HL code
   function getContext(code) {
@@ -342,6 +343,7 @@ function parse837(content) {
           // Primary payer from pre-CLM NM1*PR
           primary_payer_name: pendingPayer?.name || '',
           primary_payer_id: pendingPayer?.id || '',
+          provider_taxonomy: pendingTaxonomy || '',
 
           // Patient (fall back to subscriber when no separate HL*23 patient level)
           patient_first_name: patContext.first_name || subContext.first_name || '',
@@ -800,6 +802,41 @@ function parse837(content) {
             reference_id: (elements[2] || '').trim(),
             date: parseEDIDate(elements[3]),
           });
+        }
+        break;
+      }
+      case 'PRV': { // Provider Information (taxonomy/specialty)
+        const taxonomy = (elements[3] || '').trim();
+        if (currentClaim) {
+          currentClaim.provider_taxonomy = currentClaim.provider_taxonomy || taxonomy;
+        } else {
+          pendingTaxonomy = pendingTaxonomy || taxonomy;
+        }
+        break;
+      }
+      case 'OI': { // Other Insurance Coverage
+        if (currentClaim) {
+          currentClaim.other_insurance = currentClaim.other_insurance || [];
+          currentClaim.other_insurance.push({
+            benefits_assignment: (elements[1] || '').trim(),
+            patient_signature: (elements[2] || '').trim(),
+            coordination: (elements[4] || '').trim(),
+          });
+        }
+        break;
+      }
+      case 'LIN': { // Item Identification (line-level)
+        if (currentLine) {
+          currentLine.product_id_qualifier = (elements[2] || '').trim();
+          currentLine.product_id = (elements[3] || '').trim();
+        }
+        break;
+      }
+      case 'CTP': { // Pricing Information (line-level)
+        if (currentLine) {
+          currentLine.unit_price = parseEDIAmount(elements[3]);
+          currentLine.quantity = parseEDIAmount(elements[4]);
+          currentLine.price_qualifier = (elements[5] || '').trim();
         }
         break;
       }

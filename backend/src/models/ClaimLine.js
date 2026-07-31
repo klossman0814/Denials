@@ -19,6 +19,10 @@ const ClaimLine = sequelize.define('ClaimLine', {
   facility_code: { type: DataTypes.STRING(10) },
   type_of_service: { type: DataTypes.STRING(10) },
   unit_basis: { type: DataTypes.STRING(10) },
+  product_id_qualifier: { type: DataTypes.STRING(10) },
+  product_id: { type: DataTypes.STRING(50) },
+  unit_price: { type: DataTypes.DECIMAL(10, 2) },
+  price_qualifier: { type: DataTypes.STRING(10) },
 }, {
   tableName: 'claim_lines',
   timestamps: false,
