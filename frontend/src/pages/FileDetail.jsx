@@ -24,6 +24,21 @@ export default function FileDetail() {
       <Link to="/upload" style={{ fontSize: '0.875rem', color: 'var(--color-primary)', marginBottom: '1rem', display: 'inline-block' }}>&larr; Back to Files</Link>
       <h2 className="page-title" style={{ fontFamily: 'monospace' }}>{file.filename}</h2>
 
+      <button
+        className="btn btn-primary"
+        style={{ marginBottom: '1.5rem' }}
+        onClick={() => {
+          uploadApi.getRawFile(id, file.filename)
+            .then(() => {})
+            .catch(err => {
+              const msg = err?.response?.data?.error || 'Download failed';
+              alert(msg);
+            });
+        }}
+      >
+        Download Raw X12
+      </button>
+
       <div className="chart-grid" style={{ marginBottom: '1.5rem' }}>
         <div className="card">
           <div className="card-header">File Info</div>

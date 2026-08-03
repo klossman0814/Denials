@@ -73,6 +73,7 @@ exports.listFiles = async (req, res, next) => {
     const { page = 1, limit = 25 } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
     const { rows, count } = await UploadedFile.findAndCountAll({
+      attributes: { exclude: ['raw_content'] },
       include: [
         { association: 'Supersedes', attributes: ['id', 'filename', 'uploaded_at'] },
         { association: 'SupersededBy', attributes: ['id', 'filename', 'uploaded_at'] },
@@ -93,6 +94,7 @@ exports.listFiles = async (req, res, next) => {
 exports.getFile = async (req, res, next) => {
   try {
     const file = await UploadedFile.findByPk(req.params.id, {
+      attributes: { exclude: ['raw_content'] },
       include: [
         { association: 'Supersedes', attributes: ['id', 'filename', 'uploaded_at', 'status'] },
         { association: 'SupersededBy', attributes: ['id', 'filename', 'uploaded_at', 'status'] },
@@ -104,5 +106,27 @@ exports.getFile = async (req, res, next) => {
     const remittances = await Remittance.findAll({ where: { file_id: file.id } });
 
     res.json({ file, claims, remittances });
+  } catch (error) { next(error); }
+};
+
+exports.getRawFile = async (req, res, next) => {
+  try {
+    const file = await UploadedFile.findByPk(req.params.id, {
+      attributes: ['id', 'filename', 'file_type', 'raw_content', 'file_size'],
+    });
+    if (!file) return res.status(404).json({ error: 'File not found' });
+    if (!file.raw_content) {
+      return res.status(404).json({ error: 'Raw content not available for this file' });
+    }
+    // Guard against memory exhaustion from oversized stored blobs
+    // (treat NULL file_size as oversized — legacy backfilled rows have no size)
+    if (!file.file_size || Number(file.file_size) > 20 * 1024 * 1024) {
+      return res.status(413).json({ error: 'File too large to download raw content' });
+    }
+    // Sanitize filename for the Content-Disposition header
+    const safeName = file.filename.replace(/[^\w.\- ]+/g, '_');
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${safeName}"`);
+    res.send(file.raw_content);
   } catch (error) { next(error); }
 };

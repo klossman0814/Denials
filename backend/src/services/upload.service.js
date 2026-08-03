@@ -68,6 +68,7 @@ class UploadService {
     const fileRecord = await UploadedFile.create({
       filename, file_type: fileType, file_path: filePath,
       file_size: stats.size, content_hash: contentHash,
+      raw_content: content,
       status: 'parsing', uploaded_by: uploadedBy,
       supersedes_id: supersededFile?.id || null,
     });

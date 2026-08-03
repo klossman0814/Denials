@@ -1,6 +1,6 @@
 const { Router } = require('express');
 const controller = require('../controllers/upload.controller');
-const { authenticate } = require('../middleware/auth.middleware');
+const { authenticate, requireAdmin } = require('../middleware/auth.middleware');
 const upload = require('../middleware/upload.middleware');
 
 const router = Router();
@@ -9,5 +9,6 @@ router.post('/:type', authenticate, (req, res, next) => {
 });
 router.get('/files', authenticate, controller.listFiles);
 router.get('/files/:id', authenticate, controller.getFile);
+router.get('/files/:id/raw', authenticate, requireAdmin, controller.getRawFile);
 
 module.exports = router;
