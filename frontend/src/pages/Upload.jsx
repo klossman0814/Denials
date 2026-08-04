@@ -112,13 +112,18 @@ export default function Upload() {
         ) : (
           <>
           <table className="table">
-            <thead><tr><th>Filename</th><th>Type</th><th>Status</th><th>Correction</th><th>Uploaded</th></tr></thead>
+            <thead><tr><th>Filename</th><th>Type</th><th>Status</th><th>View</th><th>Correction</th><th>Uploaded</th></tr></thead>
             <tbody>
               {files.map(f => (
                 <tr key={f.id}>
-                  <td style={{ fontFamily: 'monospace', fontSize: '0.8125rem' }}>{f.filename}</td>
+                  <td style={{ fontFamily: 'monospace', fontSize: '0.8125rem' }}>
+                    <Link to={`/files/${f.id}`} style={{ textDecoration: 'underline' }}>{f.filename}</Link>
+                  </td>
                   <td>{f.file_type}</td>
                   <td><StatusBadge status={f.status} /></td>
+                  <td>
+                    <Link to={`/files/${f.id}`} className="btn btn-secondary" style={{ fontSize: '0.75rem', padding: '0.25rem 0.75rem' }}>View</Link>
+                  </td>
                   <td style={{ fontSize: '0.8125rem' }}>
                     {f.Supersedes ? (
                       <span style={{ color: 'var(--color-warning)' }}>
