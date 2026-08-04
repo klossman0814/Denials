@@ -65,6 +65,7 @@ services:
       - ./incoming/835_processed:/incoming/835_processed
       - ./incoming/835_duplicates:/incoming/835_duplicates
       - ./incoming/837_duplicates:/incoming/837_duplicates
+      - ./extracts:/app/backend/extracts
 
   frontend:
     build:

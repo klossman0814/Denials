@@ -11,6 +11,7 @@ const navItems = [
   { path: '/matched-claims', label: 'Matched', icon: '✅' },
   { path: '/executive-summary', label: 'Executive', icon: '📊' },
   { path: '/denial-extract', label: 'Extract', icon: '📥' },
+  { path: '/cpt-extract', label: 'CPT Extract', icon: '🔎', adminOnly: true },
   { path: '/admin', label: 'Admin', icon: '⚙️', adminOnly: true },
 ];
 

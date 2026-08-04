@@ -13,6 +13,7 @@ import Mismatches from './pages/Mismatches';
 import MatchedClaims from './pages/MatchedClaims';
 import ExecutiveSummary from './pages/ExecutiveSummary';
 import DenialExtract from './pages/DenialExtract';
+import CptExtract from './pages/CptExtract';
 import Admin from './pages/Admin';
 import Denials from './pages/Denials';
 import Remittances from './pages/Remittances';
@@ -57,6 +58,7 @@ export default function App() {
               <Route path="/matched-claims" element={<MatchedClaims />} />
               <Route path="/executive-summary" element={<ExecutiveSummary />} />
               <Route path="/denial-extract" element={<DenialExtract />} />
+              <Route path="/cpt-extract" element={<AdminRoute><CptExtract /></AdminRoute>} />
               <Route path="/admin" element={<AdminRoute><Admin /></AdminRoute>} />
             </Route>
             <Route path="*" element={<Navigate to="/" replace />} />

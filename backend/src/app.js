@@ -35,6 +35,7 @@ const mismatchesRoutes = require('./routes/mismatches.routes');
 const matchedClaimsRoutes = require('./routes/matchedClaims.routes');
 const executiveSummaryRoutes = require('./routes/executiveSummary.routes');
 const denialExtractRoutes = require('./routes/denialExtract.routes');
+const exportRoutes = require('./routes/export.routes');
 
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/upload', uploadRoutes);
@@ -47,6 +48,7 @@ app.use('/api/mismatches', mismatchesRoutes);
 app.use('/api/matched-claims', matchedClaimsRoutes);
 app.use('/api/executive-summary', executiveSummaryRoutes);
 app.use('/api/denial-extract', denialExtractRoutes);
+app.use('/api/export', exportRoutes);
 
 app.use(errorMiddleware);
 
