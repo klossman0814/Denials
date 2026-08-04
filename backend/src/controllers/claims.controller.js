@@ -1,6 +1,6 @@
 const { Op } = require('sequelize');
 const sequelize = require('../config/database');
-const { Claim, ClaimLine, Remittance, RemittanceLine, RemittanceFile, DenialReason } = require('../models');
+const { Claim, ClaimLine, Remittance, RemittanceLine, RemittanceFile, DenialReason, UploadedFile } = require('../models');
 
 exports.listClaims = async (req, res, next) => {
   try {
@@ -62,6 +62,7 @@ exports.getClaim = async (req, res, next) => {
       },
       include: [
         { model: ClaimLine },
+        { model: UploadedFile, attributes: ['id', 'filename', 'file_type'] },
         {
           model: Remittance,
           include: [

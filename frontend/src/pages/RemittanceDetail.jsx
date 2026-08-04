@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { remittancesApi } from '../services/remittances.api';
+import { uploadApi } from '../services/upload.api';
 import StatusBadge from '../components/StatusBadge';
 
 const currency = (v) => v != null ? `$${Number(v).toLocaleString()}` : '—';
@@ -27,8 +28,21 @@ export default function RemittanceDetail() {
       <Link to="/remittances" style={{ fontSize: '0.875rem', color: 'var(--color-primary)', marginBottom: '1rem', display: 'inline-block' }}>&larr; Back to Remittances</Link>
 
       <h2 className="page-title" style={{ marginBottom: '1.5rem' }}>
-        {file.filename || 'Remittance File'}
+        {file.UploadedFile?.filename || file.filename || 'Remittance File'}
       </h2>
+
+      {file.file_id && (
+        <button
+          className="btn btn-primary"
+          style={{ marginBottom: '1.5rem' }}
+          onClick={() => {
+            uploadApi.getRawFile(file.file_id, file.UploadedFile?.filename || 'remittance.835')
+              .catch(err => alert(err?.response?.data?.error || 'Download failed'));
+          }}
+        >
+          Download X12 (835)
+        </button>
+      )}
 
       <div className="card" style={{ marginBottom: '1.5rem' }}>
         <div className="card-header">Payment &amp; EFT Info</div>

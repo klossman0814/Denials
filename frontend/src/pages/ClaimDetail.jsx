@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { claimsApi } from '../services/claims.api';
+import { uploadApi } from '../services/upload.api';
 import StatusBadge from '../components/StatusBadge';
 
 const currency = (v) => v != null ? `$${Number(v).toLocaleString()}` : '—';
@@ -36,7 +37,21 @@ export default function ClaimDetail() {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
         <h2 className="page-title" style={{ margin: 0 }}>Claim {claim.claim_id}</h2>
-        <StatusBadge status={claim.status} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          {claim.file_id && (
+            <button
+              className="btn btn-primary"
+              onClick={() => {
+                const src = claim.UploadedFile;
+                uploadApi.getRawFile(claim.file_id, src?.filename || `${claim.claim_id}.837`)
+                  .catch(err => alert(err?.response?.data?.error || 'Download failed'));
+              }}
+            >
+              Download X12 (837)
+            </button>
+          )}
+          <StatusBadge status={claim.status} />
+        </div>
       </div>
 
       {/* Patient Demographics Card */}
